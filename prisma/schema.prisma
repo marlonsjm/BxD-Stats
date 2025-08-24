@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider     = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// Represents a full match series (e.g., a Best of 3)
+model Match {
+  matchid     Int       @id @default(autoincrement())
+  start_time  DateTime  @db.DateTime(0)
+  end_time    DateTime? @db.DateTime(0)
+  winner      String    @default("") @db.VarChar(255)
+  series_type String    @default("") @db.VarChar(255)
+  team1_name  String    @default("") @db.VarChar(255)
+  team1_score Int       @default(0)
+  team2_name  String    @default("") @db.VarChar(255)
+  team2_score Int       @default(0)
+  server_ip   String    @default("0") @db.VarChar(255)
+
+  // Relation: A match series has one or more maps
+  maps Map[]
+
+  @@map("matchzy_stats_matches")
+}
+
+// Represents a single map within a match series
+model Map {
+  matchid      Int
+  mapnumber    Int
+  start_time   DateTime  @db.DateTime(0)
+  end_time     DateTime? @db.DateTime(0)
+  winner       String    @default("")
+  mapname      String    @default("")
+  team1_score  Int       @default(0)
+  team2_score  Int       @default(0)
+
+  // Relation: A map belongs to a single match series
+  match        Match     @relation(fields: [matchid], references: [matchid], onDelete: Cascade)
+
+  // Relation: A map has stats for multiple players
+  player_stats PlayerStats[]
+
+  @@id([matchid, mapnumber])
+  @@index([mapnumber])
+  @@map("matchzy_stats_maps")
+}
+
+// Represents a player's stats for a single map
+model PlayerStats {
+  matchid       Int
+  mapnumber     Int
+  steamid64     BigInt   @db.BigInt
+  team          String   @db.VarChar(255)
+  name          String   @db.VarChar(255)
+  kills         Int
+  deaths        Int
+  damage        Int
+  assists       Int
+  enemy5ks      Int
+  enemy4ks      Int
+  enemy3ks      Int
+  enemy2ks      Int
+  utility_count Int
+  utility_damage Int
+  utility_successes Int
+  utility_enemies Int
+  flash_count   Int
+  flash_successes Int
+  health_points_removed_total Int
+  health_points_dealt_total   Int
+  shots_fired_total           Int
+  shots_on_target_total       Int
+  v1_count      Int
+  v1_wins       Int
+  v2_count      Int
+  v2_wins       Int
+  entry_count   Int
+  entry_wins    Int
+  equipment_value Int
+  money_saved   Int
+  kill_reward   Int
+  live_time     Int
+  head_shot_kills Int
+  cash_earned   Int
+  enemies_flashed Int
+
+  // Relation: These stats belong to a single map
+  map Map @relation(fields: [matchid, mapnumber], references: [matchid, mapnumber], onDelete: Cascade)
+
+  @@id([matchid, mapnumber, steamid64])
+  @@map("matchzy_stats_players")
+}
