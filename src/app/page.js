@@ -1,75 +1,106 @@
-import { PrismaClient } from '@prisma/client';
-import Link from 'next/link'; // Import the Link component
+import prisma from "@/lib/prisma";
+import { PlayerCard } from "@/components/PlayerCard";
+import Image from "next/image";
+import Link from "next/link";
 
-const prisma = new PrismaClient();
+async function getTopPlayers() {
+  const allStats = await prisma.playerStats.findMany({
+    select: {
+      steamid64: true,
+      name: true,
+      kills: true,
+    }
+  });
 
-export default async function Home() {
-  const matches = await prisma.match.findMany({
-    orderBy: {
-      start_time: 'desc',
-    },
-    include: {
-      maps: {
-        orderBy: {
-          mapnumber: 'asc',
-        },
-      },
+  const aggregatedPlayers = {};
+  allStats.forEach(stat => {
+    if (!aggregatedPlayers[stat.steamid64]) {
+      aggregatedPlayers[stat.steamid64] = {
+        steamid64: stat.steamid64,
+        name: stat.name,
+        kills: 0,
+      };
+    }
+    aggregatedPlayers[stat.steamid64].kills += stat.kills;
+  });
+
+  const sortedPlayers = Object.values(aggregatedPlayers).sort((a, b) => b.kills - a.kills);
+  return sortedPlayers.slice(0, 5);
+}
+
+async function getOverallStats() {
+  const matchCountPromise = prisma.match.count();
+  const statsPromise = prisma.playerStats.aggregate({
+    _sum: {
+      kills: true,
+      head_shot_kills: true,
     },
   });
 
-  return (
-    <main className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen p-8">
-      <div className="container mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-2">Estatísticas de Partidas</h1>
-          <p className="text-gray-600 dark:text-gray-400">Resultados das últimas partidas de CS2</p>
-        </header>
+  const [matchCount, totalStats] = await Promise.all([matchCountPromise, statsPromise]);
 
-        <div>
-          {matches.length === 0 ? (
-            <div className="text-center bg-gray-100 dark:bg-gray-800 p-8 rounded-lg">
-              <p className="text-xl text-gray-700 dark:text-gray-400">Nenhuma partida encontrada no banco de dados.</p>
-              <p className="text-gray-500 dark:text-gray-500 mt-2">Jogue uma partida com o plugin MatchZy para que os dados apareçam aqui.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {matches.map((match) => (
-                // Wrap the card with a Link component
-                <Link href={`/match/${match.matchid}`} key={match.matchid}>
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors h-full cursor-pointer">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="font-bold text-xl">{match.maps.length > 0 ? match.maps[0].mapname : 'Mapa Desconhecido'}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(match.start_time).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className={`text-lg ${match.winner === match.team1_name ? 'text-green-600 dark:text-green-400 font-bold' : ''}`}>
-                          {match.team1_name}
-                        </span>
-                        <span className={`text-lg font-mono ${match.winner === match.team1_name ? 'text-green-600 dark:text-green-400 font-bold' : ''}`}>
-                          {match.maps.length > 0 ? `${match.maps[0].team1_score} (${match.team1_score})` : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className={`text-lg ${match.winner === match.team2_name ? 'text-green-600 dark:text-green-400 font-bold' : ''}`}>
-                          {match.team2_name}
-                        </span>
-                        <span className={`text-lg font-mono ${match.winner === match.team2_name ? 'text-green-600 dark:text-green-400 font-bold' : ''}`}>
-                          {match.maps.length > 0 ? `${match.maps[0].team2_score} (${match.team2_score})` : 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-center mt-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Vencedor: <span className="font-semibold text-green-600 dark:text-green-400">{match.winner}</span></p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+  return {
+    totalMatches: matchCount,
+    totalKills: totalStats._sum.kills || 0,
+    totalHeadshots: totalStats._sum.head_shot_kills || 0,
+  };
+}
+
+export default async function Home() {
+  const [topPlayers, overallStats] = await Promise.all([
+    getTopPlayers(),
+    getOverallStats(),
+  ]);
+
+  const StatCard = ({ value, label }) => (
+    <div className="bg-gray-800 p-6 rounded-lg text-center shadow-lg">
+      <p className="text-3xl md:text-4xl font-bold font-mono text-white">{value.toLocaleString('pt-BR')}</p>
+      <p className="text-sm text-gray-400 mt-1">{label}</p>
+    </div>
+  );
+
+  return (
+    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+      <div className="container mx-auto space-y-16">
+        <section className="text-center pt-16 pb-8">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-4 font-orbitron">
+            BxD STATS
+          </h1>
+          <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
+            Acompanhe as estatísticas, veja os resultados das partidas e o ranking dos jogadores do nosso servidor.
+          </p>
+        </section>
+
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard value={overallStats.totalMatches} label="Partidas Jogadas" />
+            <StatCard value={overallStats.totalKills} label="Kills Totais" />
+            <StatCard value={overallStats.totalHeadshots} label="Headshots Totais" />
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-3xl font-bold text-center mb-8">Top 5 Fraggers</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {topPlayers.map((player, index) => (
+              <PlayerCard key={player.steamid64} player={player} rank={index + 1} />
+            ))}
+          </div>
+        </section>
+
+        <section className="text-center">
+            <Link href="/players" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+              Ver Ranking Completo
+            </Link>
+        </section>
+
+        <section className="text-center">
+          <h2 className="text-3xl font-bold text-center mb-8">Galeria da Comunidade</h2>
+          <p className="text-gray-400 mb-8">Veja as melhores fotos e vídeos das nossas partidas.</p>
+          <Link href="/gallery" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+            Acessar Galeria
+          </Link>
+        </section>
       </div>
     </main>
   );

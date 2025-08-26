@@ -3,186 +3,173 @@ import Link from 'next/link';
 
 const prisma = new PrismaClient();
 
-export default async function PlayerDetailPage({ params }) {
-  const { steamid64 } = params;
+async function getPlayerData(steamid64) {
+  const steamIdBigInt = BigInt(steamid64);
 
-  // Fetch all player stats for this steamid64, including related map and match details
-  const playerStats = await prisma.playerStats.findMany({
-    where: {
-      steamid64: BigInt(steamid64), // Convert string steamid64 to BigInt
+  const statsPromise = prisma.playerStats.aggregate({
+    where: { steamid64: steamIdBigInt },
+    _sum: {
+      kills: true,
+      deaths: true,
+      assists: true,
+      head_shot_kills: true,
     },
+    _count: {
+      _all: true, // This counts the number of matches played
+    },
+  });
+
+  const namesPromise = prisma.playerStats.findMany({
+    where: { steamid64: steamIdBigInt },
+    select: { name: true },
+    distinct: ['name'],
+  });
+
+  const [stats, nameRecords] = await Promise.all([statsPromise, namesPromise]);
+
+  if (stats._count._all === 0) {
+    return null;
+  }
+
+  const kills = stats._sum.kills || 0;
+  const deaths = stats._sum.deaths || 0;
+  const assists = stats._sum.assists || 0;
+  const head_shot_kills = stats._sum.head_shot_kills || 0;
+  const mapsPlayed = stats._count._all;
+
+  const player = {
+    steamid64,
+    names: nameRecords.map(r => r.name),
+    kills,
+    deaths,
+    assists,
+    mapsPlayed,
+    diff: kills - deaths,
+    kdr: deaths > 0 ? (kills / deaths).toFixed(2) : 'N/A',
+    hs_percent: kills > 0 ? ((head_shot_kills / kills) * 100).toFixed(1) : '0.0',
+  };
+
+  return player;
+}
+
+async function getPlayerMatchHistory(steamid64) {
+  const steamIdBigInt = BigInt(steamid64);
+  const matches = await prisma.playerStats.findMany({
+    where: { steamid64: steamIdBigInt },
     include: {
       map: {
         include: {
-          match: true, // Include match details for each map
+          match: true,
         },
       },
     },
     orderBy: {
-      map: {
-        match: {
-          start_time: 'desc', // Order by most recent matches
-        },
-      },
+      matchid: 'desc',
     },
   });
+  return matches;
+}
 
-  if (playerStats.length === 0) {
+export default async function PlayerDetailPage({ params }) {
+  const { steamid64 } = params;
+  const playerData = await getPlayerData(steamid64);
+
+  if (!playerData) {
     return (
-      <main className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen p-8">
+      <main className="bg-gray-900 text-white min-h-screen p-8">
         <div className="container mx-auto text-center">
           <h1 className="text-4xl font-bold">Jogador não encontrado</h1>
-          <Link href="/players" className="text-blue-500 hover:underline mt-4 inline-block">Voltar para a lista de jogadores</Link>
+          <Link href="/players" className="text-blue-400 hover:underline mt-4 inline-block">Voltar para o Ranking</Link>
         </div>
       </main>
     );
   }
 
-  // Aggregate overall player stats
-  const aggregatedStats = {
-    totalKills: 0,
-    totalDeaths: 0,
-    totalAssists: 0,
-    totalDamage: 0,
-    totalHeadshotKills: 0,
-    totalEnemy2ks: 0,
-    totalEnemy3ks: 0,
-    totalEnemy4ks: 0,
-    totalEnemy5ks: 0,
-    totalUtilityCount: 0,
-    totalUtilityDamage: 0,
-    totalUtilitySuccesses: 0,
-    totalUtilityEnemies: 0,
-    totalFlashCount: 0,
-    totalFlashSuccesses: 0,
-    totalShotsFired: 0,
-    totalShotsOnTarget: 0,
-    totalV1Count: 0,
-    totalV1Wins: 0,
-    totalV2Count: 0,
-    totalV2Wins: 0,
-    totalEntryCount: 0,
-    totalEntryWins: 0,
-    totalEnemiesFlashed: 0,
-    totalMapsPlayed: playerStats.length,
-    uniqueNames: new Set(),
-  };
-
-  playerStats.forEach(stat => {
-    aggregatedStats.totalKills += stat.kills;
-    aggregatedStats.totalDeaths += stat.deaths;
-    aggregatedStats.totalAssists += stat.assists;
-    aggregatedStats.totalDamage += stat.damage;
-    aggregatedStats.totalHeadshotKills += stat.head_shot_kills;
-    aggregatedStats.totalEnemy2ks += stat.enemy2ks;
-    aggregatedStats.totalEnemy3ks += stat.enemy3ks;
-    aggregatedStats.totalEnemy4ks += stat.enemy4ks;
-    aggregatedStats.totalEnemy5ks += stat.enemy5ks;
-    aggregatedStats.totalUtilityCount += stat.utility_count;
-    aggregatedStats.totalUtilityDamage += stat.utility_damage;
-    aggregatedStats.totalUtilitySuccesses += stat.utility_successes;
-    aggregatedStats.totalUtilityEnemies += stat.utility_enemies;
-    aggregatedStats.totalFlashCount += stat.flash_count;
-    aggregatedStats.totalFlashSuccesses += stat.flash_successes;
-    aggregatedStats.totalShotsFired += stat.shots_fired_total;
-    aggregatedStats.totalShotsOnTarget += stat.shots_on_target_total;
-    aggregatedStats.totalV1Count += stat.v1_count;
-    aggregatedStats.totalV1Wins += stat.v1_wins;
-    aggregatedStats.totalV2Count += stat.v2_count;
-    aggregatedStats.totalV2Wins += stat.v2_wins;
-    aggregatedStats.totalEntryCount += stat.entry_count;
-    aggregatedStats.totalEntryWins += stat.entry_wins;
-    aggregatedStats.totalEnemiesFlashed += stat.enemies_flashed;
-    aggregatedStats.uniqueNames.add(stat.name);
-  });
-
-  const hsPercentage = aggregatedStats.totalKills > 0 ? ((aggregatedStats.totalHeadshotKills / aggregatedStats.totalKills) * 100).toFixed(1) : 0;
-  const diff = aggregatedStats.totalKills - aggregatedStats.totalDeaths;
-  const kdr = aggregatedStats.totalDeaths > 0 ? (aggregatedStats.totalKills / aggregatedStats.totalDeaths).toFixed(2) : aggregatedStats.totalKills.toFixed(2);
-  const mk = aggregatedStats.totalEnemy2ks + aggregatedStats.totalEnemy3ks + aggregatedStats.totalEnemy4ks + aggregatedStats.totalEnemy5ks;
-  const shotAccuracy = aggregatedStats.totalShotsFired > 0 ? ((aggregatedStats.totalShotsOnTarget / aggregatedStats.totalShotsFired) * 100).toFixed(1) : 0;
-  const playerDisplayName = Array.from(aggregatedStats.uniqueNames).join(', ');
+  const matchHistory = await getPlayerMatchHistory(steamid64);
+  const primaryName = playerData.names[0] || 'Jogador Desconhecido';
 
   return (
-    <main className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen p-8">
+    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-2">Detalhes do Jogador: {playerDisplayName}</h1>
-          <p className="text-gray-600 dark:text-gray-400">SteamID64: {steamid64}</p>
+        <header className="mb-8">
+          <Link href="/players" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para o Ranking</Link>
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h1 className="text-3xl md:text-4xl font-bold">{primaryName}</h1>
+            <p className="text-gray-400">SteamID64: {playerData.steamid64}</p>
+            {playerData.names.length > 1 && (
+              <p className="text-sm text-gray-500">Nicks Anteriores: {playerData.names.slice(1).join(', ')}</p>
+            )}
+          </div>
         </header>
 
-        <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-8">
-          <h2 className="text-2xl font-bold mb-4">Estatísticas Gerais</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-lg">
-            <div><span className="font-semibold">Kills:</span> {aggregatedStats.totalKills}</div>
-            <div><span className="font-semibold">Deaths:</span> {aggregatedStats.totalDeaths}</div>
-            <div><span className="font-semibold">Assists:</span> {aggregatedStats.totalAssists}</div>
-            <div><span className="font-semibold">HS%:</span> {hsPercentage}%</div>
-            <div><span className="font-semibold">DIFF:</span> {diff}</div>
-            <div><span className="font-semibold">KDR:</span> {kdr}</div>
-            <div><span className="font-semibold">MK:</span> {mk}</div>
-            <div><span className="font-semibold">Utilidade Usada:</span> {aggregatedStats.totalUtilityCount}</div>
-            <div><span className="font-semibold">Dano de Utilidade:</span> {aggregatedStats.totalUtilityDamage}</div>
-            <div><span className="font-semibold">Flashes Lançadas:</span> {aggregatedStats.totalFlashCount}</div>
-            <div><span className="font-semibold">Inimigos Flashados:</span> {aggregatedStats.totalEnemiesFlashed}</div>
-            <div><span className="font-semibold">Precisão de Tiro:</span> {shotAccuracy}%</div>
-            <div><span className="font-semibold">1vs1:</span> {aggregatedStats.totalV1Count} ({aggregatedStats.totalV1Wins} vitórias)</div>
-            <div><span className="font-semibold">1vs2:</span> {aggregatedStats.totalV2Count} ({aggregatedStats.totalV2Wins} vitórias)</div>
-            <div><span className="font-semibold">FK:</span> {aggregatedStats.totalEntryCount} ({aggregatedStats.totalEntryWins} vitórias)</div>
-            <div><span className="font-semibold">Mapas Jogados:</span> {aggregatedStats.totalMapsPlayed}</div>
+        {/* Player Stats Summary */}
+        <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-8">
+          <h2 className="text-xl font-bold mb-4">Estatísticas Gerais</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-center">
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.kdr}</div>
+              <div className="text-sm text-gray-400">KDR</div>
+            </div>
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.hs_percent}%</div>
+              <div className="text-sm text-gray-400">HS%</div>
+            </div>
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.kills}</div>
+              <div className="text-sm text-gray-400">Kills</div>
+            </div>
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.deaths}</div>
+              <div className="text-sm text-gray-400">Deaths</div>
+            </div>
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.assists}</div>
+              <div className="text-sm text-gray-400">Assists</div>
+            </div>
+            <div className="bg-gray-900/50 p-3 rounded-md">
+              <div className="text-2xl font-bold font-mono">{playerData.mapsPlayed}</div>
+              <div className="text-sm text-gray-400">Mapas</div>
+            </div>
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold mb-4">Partidas Participadas</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-left">
-            <thead className="bg-gray-100 dark:bg-gray-800 text-xs uppercase">
-              <tr>
-                <th scope="col" className="px-6 py-3">Partida</th>
-                <th scope="col" className="px-6 py-3">Mapa</th>
-                <th scope="col" className="px-6 py-3 text-center">K</th>
-                <th scope="col" className="px-6 py-3 text-center">A</th>
-                <th scope="col" className="px-6 py-3 text-center">D</th>
-                <th scope="col" className="px-6 py-3 text-center">DIFF</th>
-                <th scope="col" className="px-6 py-3 text-center">MK</th>
-                <th scope="col" className="px-6 py-3 text-center">FK</th>
-                <th scope="col" className="px-6 py-3 text-center">HS%</th>
-                <th scope="col" className="px-6 py-3 text-center">KDR</th>
+        {/* Match History */}
+        <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+          <h2 className="text-xl font-bold p-4">Histórico de Partidas</h2>
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-900/50">
+              <tr className="border-b border-gray-700">
+                <th scope="col" className="p-3 text-left font-semibold">Partida</th>
+                <th scope="col" className="p-3 text-left font-semibold">Mapa</th>
+                <th scope="col" className="p-3 text-center font-semibold">K-D</th>
+                <th scope="col" className="p-3 text-center font-semibold">+/-</th>
+                <th scope="col" className="p-3 text-center font-semibold">HS%</th>
               </tr>
             </thead>
             <tbody>
-              {playerStats.map(stat => {
-                const hs = stat.kills > 0 ? ((stat.head_shot_kills / stat.kills) * 100).toFixed(1) : 0;
+              {matchHistory.map(stat => {
+                const match = stat.map.match;
                 const diff = stat.kills - stat.deaths;
-                const kdr = stat.deaths > 0 ? (stat.kills / stat.deaths).toFixed(2) : stat.kills.toFixed(2);
-                const mk = stat.enemy2ks + stat.enemy3ks + stat.enemy4ks + stat.enemy5ks;
-                const matchName = stat.map && stat.map.match ? `${stat.map.match.team1_name} vs ${stat.map.match.team2_name}` : 'Partida Desconhecida';
-                const mapName = stat.map ? stat.map.mapname : 'Mapa Desconhecido';
+                const diffColor = diff > 0 ? 'text-green-500' : diff < 0 ? 'text-red-500' : 'text-gray-400';
+                const diffSign = diff > 0 ? '+' : '';
+                const hs_percent = stat.kills > 0 ? ((stat.head_shot_kills / stat.kills) * 100).toFixed(1) : '0.0';
+
                 return (
-                  <tr key={`${stat.matchid}-${stat.mapnumber}`} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <th scope="row" className="px-6 py-4 font-medium whitespace-nowrap">
-                      <Link href={`/match/${stat.matchid}`} className="text-blue-500 hover:underline">
-                        {matchName}
+                  <tr key={`${match.matchid}-${stat.mapid}`} className="border-b border-gray-800 last:border-b-0">
+                    <td className="p-3">
+                      <Link href={`/match/${match.matchid}`} className="hover:underline">
+                        {match.team1_name} vs {match.team2_name}
                       </Link>
-                    </th>
-                    <td className="px-6 py-4">{mapName}</td>
-                    <td className="px-6 py-4 text-center">{stat.kills}</td>
-                    <td className="px-6 py-4 text-center">{stat.assists}</td>
-                    <td className="px-6 py-4 text-center">{stat.deaths}</td>
-                    <td className="px-6 py-4 text-center">{diff}</td>
-                    <td className="px-6 py-4 text-center">{mk}</td>
-                    <td className="px-6 py-4 text-center">{stat.entry_count}</td>
-                    <td className="px-6 py-4 text-center">{hs}%</td>
-                    <td className="px-6 py-4 text-center">{kdr}</td>
+                    </td>
+                    <td className="p-3 text-gray-400">{stat.map.mapname}</td>
+                    <td className="p-3 text-center font-mono">{`${stat.kills}-${stat.deaths}`}</td>
+                    <td className={`p-3 text-center font-mono ${diffColor}`}>{`${diffSign}${diff}`}</td>
+                    <td className="p-3 text-center font-mono">{hs_percent}%</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
-
-        <div className="text-center mt-8">
-          <Link href="/players" className="text-blue-500 hover:underline">← Voltar para a lista de jogadores</Link>
         </div>
       </div>
     </main>
