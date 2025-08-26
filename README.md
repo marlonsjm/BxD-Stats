@@ -4,8 +4,6 @@ Bem-vindo ao BxD Stats, uma plataforma de estatísticas de Counter-Strike 2 dese
 
 O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com).
 
-![Screenshot da Home do BxD Stats](https://i.imgur.com/URL_DA_IMAGEM_AQUI.png) <!-- Você pode substituir esta URL por um screenshot real do projeto -->
-
 ## ✨ Funcionalidades Principais
 
 - **Histórico de Partidas:** Uma lista completa de todas as partidas jogadas, com placares detalhados, mapas e datas.
