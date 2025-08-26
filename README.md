@@ -28,8 +28,8 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 
 1.  **Clone o repositório:**
     ```bash
-    git clone https://github.com/marlonsjm/web-casa.git
-    cd web-casa
+    git clone https://github.com/marlonsjm/BxD-Stats.git
+    cd BxD-Stats
     ```
 
 2.  **Instale as dependências:**
