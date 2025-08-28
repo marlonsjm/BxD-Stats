@@ -12,7 +12,7 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
   - **Jogador:** Estatísticas agregadas e histórico de partidas para cada jogador.
   - **Partida:** Placar completo, estatísticas de todos os jogadores na partida, agrupados por time.
   - **Mapa:** Ranking de melhores jogadores e histórico de partidas para cada mapa específico.
-- **Galeria da Comunidade:** Uma galeria em mosaico com efeito lightbox para exibir os melhores momentos (fotos e vídeos) das partidas.
+- **Galeria da Comunidade:** Uma galeria em mosaico com efeito lightbox para exibir os melhores momentos (fotos e vídeos) das partidas. O conteúdo é gerenciado dinamicamente através do Cloudinary, permitindo uploads sem a necessidade de novos deploys.
 - **Design Responsivo:** Interface limpa e moderna inspirada em plataformas como a HLTV. Totalmente funcional em desktops e dispositivos móveis, com **tabelas de dados que se adaptam para um formato de cards em telas pequenas**, garantindo uma excelente experiência de usuário em qualquer dispositivo.
 
 ## 🚀 Stack Tecnológica
@@ -20,6 +20,7 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 - **Framework:** [Next.js](https://nextjs.org/) (App Router)
 - **Banco de Dados:** [TiDB Cloud](https://tidb.cloud/) (Compatível com MySQL)
 - **ORM:** [Prisma](https://www.prisma.io/)
+- **Gerenciamento de Mídia:** [Cloudinary](https://cloudinary.com/) (para a galeria de imagens e vídeos)
 - **Estilização:** [Tailwind CSS](https://tailwindcss.com/)
 - **Componentes UI:** [shadcn/ui](https://ui.shadcn.com/)
 - **Deployment:** [Vercel](https://vercel.com/)
@@ -38,10 +39,16 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
     ```
 
 3.  **Configure as Variáveis de Ambiente:**
-    - Crie um arquivo `.env` na raiz do projeto.
-    - Adicione a sua `DATABASE_URL` do TiDB Cloud (ou outro banco de dados) nele:
+    - Crie um arquivo `.env.local` na raiz do projeto.
+    - Adicione as seguintes variáveis:
       ```
+      # URL de conexão do seu banco de dados (TiDB, MySQL, etc.)
       DATABASE_URL="mysql://USER:PASSWORD@HOST/DATABASE?sslaccept=strict"
+
+      # Credenciais do Cloudinary (para a galeria)
+      NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="SEU_CLOUD_NAME"
+      CLOUDINARY_API_KEY="SUA_API_KEY"
+      CLOUDINARY_API_SECRET="SEU_API_SECRET"
       ```
 
 4.  **Sincronize o Schema do Banco:**
