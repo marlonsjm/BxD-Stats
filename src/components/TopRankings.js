@@ -15,9 +15,9 @@ async function RankingList({ title, data, unit, href }) {
         <ol className="space-y-2">
           {data.map((player, index) => (
             <li key={index} className="flex items-center justify-between text-sm">
-              <span className="flex items-center">
+              <span className="flex items-center min-w-0">
                 <span className="font-bold w-6 text-center">{player.rank}</span>
-                <span className="ml-2">{player.name}</span>
+                <span className="ml-2 break-all">{player.name}</span>
               </span>
               <span className="font-semibold">{player.value}{unit}</span>
             </li>
@@ -38,7 +38,7 @@ export default async function TopRankings() {
   return (
     <section className="w-full py-8">
       <div className="container px-4 md:px-6">
-        <h2 className="text-3xl font-bold mb-6 text-white text-center">Destaques do Servidor</h2>
+        <h2 className="text-3xl font-bold mb-6 text-white text-center">Players em Destaque</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <RankingList title="Top 5 Headshots" data={topHeadshots} href="/rankings" />
           <RankingList title="Top 5 Clutches" data={topClutches} href="/rankings" />

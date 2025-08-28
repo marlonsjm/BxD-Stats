@@ -44,7 +44,18 @@ async function getPlayerRankings() {
       kdr: p.deaths > 0 ? (p.kills / p.deaths).toFixed(2) : 'N/A',
       hs_percent: p.kills > 0 ? ((p.head_shot_kills / p.kills) * 100).toFixed(1) : '0.0',
     };
-  }).sort((a, b) => b.kills - a.kills); // Sort by kills descending
+  }).sort((a, b) => {
+    // Handle 'N/A' KDR values by treating them as 0
+    const kdrA = a.kdr === 'N/A' ? 0 : parseFloat(a.kdr);
+    const kdrB = b.kdr === 'N/A' ? 0 : parseFloat(b.kdr);
+
+    // Primary sort: KDR descending
+    if (kdrB > kdrA) return 1;
+    if (kdrB < kdrA) return -1;
+
+    // Secondary sort (tie-breaker): Assists descending
+    return b.assists - a.assists;
+  });
 
   return players;
 }
@@ -63,7 +74,7 @@ export default async function PlayersPage() {
         <Breadcrumbs items={breadcrumbItems} />
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Ranking de Jogadores</h1>
-          <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores, ordenadas por Kills.</p>
+          <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores, ordenadas por KDR (e Assistências como desempate).</p>
         </header>
 
         <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">

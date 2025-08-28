@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { PlayerCard } from "@/components/PlayerCard";
 import Image from "next/image";
 import Link from "next/link";
+import { getCloudinaryImages } from "./gallery/actions";
 
 async function getTopPlayers() {
   const allStats = await prisma.playerStats.findMany({
@@ -47,11 +48,26 @@ async function getOverallStats() {
   };
 }
 
+// Helper function to get random items from an array
+function getRandomItems(arr, num) {
+    if (!arr || arr.length === 0) {
+        return [];
+    }
+    if (arr.length <= num) {
+        return arr;
+    }
+    const shuffled = [...arr].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, num);
+}
+
 export default async function Home() {
-  const [topPlayers, overallStats] = await Promise.all([
+  const [topPlayers, overallStats, allImages] = await Promise.all([
     getTopPlayers(),
     getOverallStats(),
+    getCloudinaryImages(),
   ]);
+
+  const randomImages = getRandomItems(allImages, 3);
 
   const StatCard = ({ value, label }) => (
     <div className="bg-gray-800 p-6 rounded-lg text-center shadow-lg">
@@ -73,6 +89,7 @@ export default async function Home() {
         </section>
 
         <section>
+          <h2 className="text-3xl font-bold text-center mb-8">Estatísticas Gerais</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StatCard value={overallStats.totalMatches} label="Partidas Jogadas" />
             <StatCard value={overallStats.totalKills} label="Kills Totais" />
@@ -83,7 +100,7 @@ export default async function Home() {
         <TopRankings />
 
         <section>
-          <h2 className="text-3xl font-bold text-center mb-8">Top 5 Fraggers</h2>
+          <h2 className="text-3xl font-bold text-center mb-8">Top 5 Kills</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {topPlayers.map((player, index) => (
               <PlayerCard key={player.steamid64} player={player} rank={index + 1} />
@@ -99,7 +116,25 @@ export default async function Home() {
 
         <section className="text-center">
           <h2 className="text-3xl font-bold text-center mb-8">Galeria da Comunidade</h2>
-          <p className="text-gray-400 mb-8">Veja as melhores fotos e vídeos das nossas partidas.</p>
+          <p className="text-gray-400 mb-4">Veja as melhores fotos e vídeos das nossas partidas.</p>
+          
+          {randomImages.length > 0 && (
+            <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {randomImages.map((image) => (
+                <Link key={image.src} href="/gallery">
+                  <div className="relative aspect-video overflow-hidden rounded-lg group cursor-pointer">
+                    <Image
+                      src={image.thumbnail || image.src}
+                      alt={image.alt}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
           <Link href="/gallery" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
             Acessar Galeria
           </Link>

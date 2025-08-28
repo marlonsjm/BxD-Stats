@@ -57,7 +57,10 @@ export default async function RankingsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Breadcrumbs items={breadcrumbItems} />
-      <h1 className="text-4xl font-bold mb-8 text-white">Rankings</h1>
+      <header className="mb-8 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold">Rankings Detalhados</h1>
+        <p className="text-gray-400 mt-2">Explore as classificações de jogadores por categorias específicas.</p>
+      </header>
       <div className="space-y-8">
         <RankingTable title="Top Headshots" data={headshotRankings} columnHeader="HS %" />
         <RankingTable title="Top Clutches (1vX)" data={clutchRankings} columnHeader="Clutches Won" />

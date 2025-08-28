@@ -77,3 +77,30 @@ Nesta sessão, o foco foi aprofundar as estatísticas disponíveis e melhorar dr
 ### 6. Otimização de Responsividade (Mobile UX)
 
 - **Tabelas Responsivas:** Foi implementada uma solução global para responsividade de tabelas. Em todo o site, as tabelas de dados (rankings, históricos de partidas, placares) agora se transformam em um layout de "cards" verticais em dispositivos móveis. Isso garante total legibilidade e uma excelente experiência de usuário em telas pequenas, resolvendo um problema clássico de usabilidade.
+
+---
+
+### 7. Galeria Dinâmica com Cloudinary e Melhorias Gerais
+
+Nesta sessão, o foco foi resolver problemas de deploy, integrar um sistema de gerenciamento de mídia para a galeria e refinar a experiência do usuário em várias páginas.
+
+- **Integração com Cloudinary:**
+  - A página de galeria foi completamente refeita para buscar imagens e vídeos dinamicamente de uma conta Cloudinary.
+  - Isso permite a adição de novas mídias sem a necessidade de realizar um novo deploy, bastando fazer o upload no painel do Cloudinary.
+  - O `README.md` foi atualizado para refletir o uso do Cloudinary na stack do projeto.
+
+- **Correções de Deploy e Configuração:**
+  - Resolvido um erro de build na Vercel causado pela diretiva `'use client'` mal posicionada.
+  - Corrigido um erro de runtime ao configurar o domínio do Cloudinary (`res.cloudinary.com`) no `next.config.js` para permitir o uso do componente `next/image`.
+  - Otimizada a gestão de chaves de API, utilizando variáveis de ambiente no Vercel para a integração segura com o Cloudinary.
+
+- **Melhorias na Home Page:**
+  - Adicionada uma prévia da galeria na página inicial, exibindo 3 imagens aleatórias do Cloudinary para aumentar o apelo visual.
+  - Realizados ajustes textuais e de layout, como a adição do título "Estatísticas Gerais" e a renomeação de seções para "Players em Destaque" e "Top 5 Kills", melhorando a clareza das informações.
+
+- **Refinamentos de UX e Layout:**
+  - Corrigido um problema de layout no mobile onde nicks de jogadores muito longos quebravam o design. A classe `break-all` foi aplicada para forçar a quebra de linha.
+  - A página de rankings (`/rankings`) foi padronizada com o resto do site, centralizando o título e adicionando um texto descritivo.
+
+- **Lógica de Ranking Aprimorada:**
+  - O ranking principal de jogadores (`/players`) foi alterado. A classificação agora é baseada no **KDR** (Kill/Death Ratio) como critério principal, utilizando o número de **assistências** como fator de desempate.

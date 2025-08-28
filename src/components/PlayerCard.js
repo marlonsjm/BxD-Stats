@@ -19,7 +19,7 @@ export function PlayerCard({ player, rank }) {
         
         {/* Player Name (flexible part) */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white truncate">{player.name}</p>
+          <p className="font-semibold text-white break-all">{player.name}</p>
         </div>
 
         {/* Kills (fixed part) */}
