@@ -52,3 +52,28 @@ Nesta sessão de desenvolvimento, realizamos uma reestruturação completa do de
 
 - O `GEMINI.md` foi atualizado com este resumo.
 - O `README.md` foi reescrito para ser um documento profissional de apresentação do projeto no GitHub.
+
+### 5. Melhorias de Navegação e Rankings Específicos
+
+Nesta sessão, o foco foi aprofundar as estatísticas disponíveis e melhorar drasticamente a usabilidade e a navegação em todo o site.
+
+- **Criação de Rankings Específicos:**
+  - Implementada uma nova página `/rankings` para exibir classificações detalhadas de jogadores por **Headshot %**, **Clutches Vencidos** e taxa de sucesso de **Entry Frag**.
+  - As queries no Prisma foram otimizadas com o uso da cláusula `having` para filtrar corretamente os jogadores que atendem aos critérios mínimos após a agregação dos dados.
+
+- **Melhorias na Home Page:**
+  - A página inicial foi enriquecida com uma nova seção "Destaques do Servidor", que exibe o **Top 5** de cada um dos novos rankings específicos, aumentando o engajamento e a visibilidade dos dados.
+
+- **Aprofundamento das Estatísticas do Jogador:**
+  - A página de perfil individual (`/player/[steamid64]`) agora exibe cards com o **total de Clutches vencidos** e a **taxa de sucesso de Entry Frag**, fornecendo uma visão mais completa do estilo de jogo de cada um.
+
+- **Implementação de Breadcrumbs:**
+  - Foi criado um componente reutilizável `Breadcrumbs` e implementado em **todas as seções do site** (Jogadores, Rankings, Partidas, Mapas, Galeria e suas subpáginas). Isso padronizou a navegação e melhorou a orientação do usuário.
+
+- **Melhorias Gerais de UX:**
+  - Os nomes dos jogadores em todas as tabelas de ranking se tornaram **links clicáveis** que levam diretamente para a página de perfil correspondente.
+  - Foi corrigido um **bug de navegação** na página de detalhes da partida, onde o link "voltar" apontava para a home em vez do histórico de partidas.
+
+### 6. Otimização de Responsividade (Mobile UX)
+
+- **Tabelas Responsivas:** Foi implementada uma solução global para responsividade de tabelas. Em todo o site, as tabelas de dados (rankings, históricos de partidas, placares) agora se transformam em um layout de "cards" verticais em dispositivos móveis. Isso garante total legibilidade e uma excelente experiência de usuário em telas pequenas, resolvendo um problema clássico de usabilidade.

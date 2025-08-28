@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 'use client';
 
 import { useState } from 'react';
@@ -41,9 +42,15 @@ const Lightbox = ({ item, onClose }) => (
 export default function GalleryPage() {
   const [selectedItem, setSelectedItem] = useState(null);
 
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { label: "Galeria" },
+  ];
+
   return (
     <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto">
+        <Breadcrumbs items={breadcrumbItems} />
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Galeria da Comunidade</h1>
           <p className="text-gray-400 mt-2">Os melhores momentos das nossas partidas.</p>

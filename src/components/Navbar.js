@@ -12,7 +12,8 @@ export function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/matches', label: 'Partidas' },
-    { href: '/players', label: 'Ranking de Jogadores' },
+    { href: '/players', label: 'Jogadores' },
+    { href: '/rankings', label: 'Rankings' },
     { href: '/maps', label: 'Mapas' },
     { href: '/gallery', label: 'Galeria' },
   ];

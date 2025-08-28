@@ -1,3 +1,4 @@
+import TopRankings from "@/components/TopRankings";
 import prisma from "@/lib/prisma";
 import { PlayerCard } from "@/components/PlayerCard";
 import Image from "next/image";
@@ -78,6 +79,8 @@ export default async function Home() {
             <StatCard value={overallStats.totalHeadshots} label="Headshots Totais" />
           </div>
         </section>
+
+        <TopRankings />
 
         <section>
           <h2 className="text-3xl font-bold text-center mb-8">Top 5 Fraggers</h2>

@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
@@ -23,9 +24,15 @@ async function getMapStats() {
 export default async function MapsPage() {
   const maps = await getMapStats();
 
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { label: "Mapas" },
+  ];
+
   return (
     <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto">
+        <Breadcrumbs items={breadcrumbItems} />
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Mapas Jogados</h1>
           <p className="text-gray-400 mt-2">Visão geral de todos os mapas em nossa rotação.</p>

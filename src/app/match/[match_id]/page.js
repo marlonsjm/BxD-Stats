@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
 
@@ -78,26 +79,33 @@ export default async function MatchPage({ params }) {
     const diffSign = player.diff > 0 ? '+' : '';
 
     return (
-      <tr key={player.steamid64} className="border-b border-gray-800">
-        <td className="p-3">
+      <tr key={player.steamid64} className="last:border-b-0">
+        <td data-label="Jogador" className="p-3 md:text-left">
           <Link href={`/player/${player.steamid64}`} className="text-white hover:underline">
             {player.name}
           </Link>
         </td>
-        <td className="p-3 text-center font-mono">{`${player.kills}-${player.deaths}`}</td>
-        <td className={`p-3 text-center font-mono ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
-        <td className="p-3 text-center font-mono">{player.assists}</td>
-        <td className="p-3 text-center font-mono">{player.hs_percent}%</td>
-        <td className="p-3 text-center font-mono">{player.kdr}</td>
+        <td data-label="K-D" className="p-3 font-mono">{`${player.kills}-${player.deaths}`}</td>
+        <td data-label="+/-" className={`p-3 font-mono ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
+        <td data-label="Assists" className="p-3 font-mono">{player.assists}</td>
+        <td data-label="HS%" className="p-3 font-mono">{player.hs_percent}%</td>
+        <td data-label="KDR" className="p-3 font-mono">{player.kdr}</td>
       </tr>
     );
   };
 
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: "/matches", label: "Partidas" },
+    { label: `Partida #${match.matchid}` },
+  ];
+
   return (
     <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto">
+        <Breadcrumbs items={breadcrumbItems} />
         <header className="mb-8">
-          <Link href="/" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para todas as partidas</Link>
+          <Link href="/matches" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para todas as partidas</Link>
           <div className="bg-gray-800 p-4 rounded-lg text-center shadow-lg">
             <p className="text-gray-400">
               Partida em {match.maps.length > 0 ? match.maps.map(m => m.mapname).join(', ') : 'Mapa Desconhecido'}
@@ -111,8 +119,8 @@ export default async function MatchPage({ params }) {
           </div>
         </header>
 
-        <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-          <table className="min-w-full text-sm">
+        <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
+          <table className="min-w-full text-sm responsive-table">
             <thead className="bg-gray-900/50">
               <tr className="border-b border-gray-700">
                 <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
@@ -123,15 +131,15 @@ export default async function MatchPage({ params }) {
                 <th scope="col" className="p-3 text-center font-semibold">KDR</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="bg-gray-800">
               {/* Team 1 */}
-              <tr className="bg-gray-900/30">
+              <tr className="bg-gray-900/30 responsive-table-header-group">
                 <td colSpan="6" className="p-2 font-bold text-lg">{match.team1_name}</td>
               </tr>
               {team1Players.map(renderPlayerRow)}
 
               {/* Team 2 */}
-              <tr className="bg-gray-900/30">
+              <tr className="bg-gray-900/30 responsive-table-header-group">
                 <td colSpan="6" className="p-2 font-bold text-lg">{match.team2_name}</td>
               </tr>
               {team2Players.map(renderPlayerRow)}

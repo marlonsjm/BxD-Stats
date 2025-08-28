@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
 
@@ -51,16 +52,22 @@ async function getPlayerRankings() {
 export default async function PlayersPage() {
   const players = await getPlayerRankings();
 
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { label: "Jogadores" },
+  ];
+
   return (
     <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto">
+        <Breadcrumbs items={breadcrumbItems} />
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Ranking de Jogadores</h1>
           <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores, ordenadas por Kills.</p>
         </header>
 
-        <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-          <table className="min-w-full text-sm">
+        <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
+          <table className="min-w-full text-sm responsive-table">
             <thead className="bg-gray-900/50">
               <tr className="border-b border-gray-700">
                 <th scope="col" className="p-3 text-center font-semibold w-16">Rank</th>
@@ -79,19 +86,19 @@ export default async function PlayersPage() {
                 const diffSign = player.diff > 0 ? '+' : '';
 
                 return (
-                  <tr key={player.steamid64} className="border-b border-gray-800 last:border-b-0">
-                    <td className="p-3 text-center font-bold text-gray-400">#{index + 1}</td>
-                    <td className="p-3">
+                  <tr key={player.steamid64} className="last:border-b-0">
+                    <td data-label="Rank" className="p-3 font-bold text-gray-400 md:text-center">#{index + 1}</td>
+                    <td data-label="Jogador" className="p-3 text-right md:text-left">
                       <Link href={`/player/${player.steamid64}`} className="text-white hover:underline">
                         {player.name}
                       </Link>
                     </td>
-                    <td className="p-3 text-center font-mono">{`${player.kills}-${player.deaths}`}</td>
-                    <td className={`p-3 text-center font-mono ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
-                    <td className="p-3 text-center font-mono">{player.assists}</td>
-                    <td className="p-3 text-center font-mono">{player.hs_percent}%</td>
-                    <td className="p-3 text-center font-mono">{player.kdr}</td>
-                    <td className="p-3 text-center font-mono">{player.mapsPlayed}</td>
+                    <td data-label="K-D" className="p-3 font-mono">{`${player.kills}-${player.deaths}`}</td>
+                    <td data-label="+/-" className={`p-3 font-mono ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
+                    <td data-label="Assists" className="p-3 font-mono">{player.assists}</td>
+                    <td data-label="HS%" className="p-3 font-mono">{player.hs_percent}%</td>
+                    <td data-label="KDR" className="p-3 font-mono">{player.kdr}</td>
+                    <td data-label="Mapas" className="p-3 font-mono">{player.mapsPlayed}</td>
                   </tr>
                 );
               })}

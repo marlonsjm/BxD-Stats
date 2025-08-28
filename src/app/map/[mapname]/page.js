@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
@@ -44,6 +45,12 @@ async function getMapData(mapname) {
 export default async function MapPage({ params }) {
   const { mapname } = params;
   const { leaderboard, matchHistory, decodedMapname } = await getMapData(mapname);
+
+  const breadcrumbItems = [
+    { href: "/", label: "Home" },
+    { href: "/maps", label: "Mapas" },
+    { label: decodedMapname.replace(/de_|cs_/, '').charAt(0).toUpperCase() + decodedMapname.replace(/de_|cs_/, '').slice(1) },
+  ];
 
   const renderLeaderboard = () => (
     <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
@@ -134,6 +141,7 @@ export default async function MapPage({ params }) {
   return (
     <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
       <div className="container mx-auto space-y-8">
+        <Breadcrumbs items={breadcrumbItems} />
         <header className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold capitalize">
             Estatísticas de {decodedMapname.replace(/de_|cs_/, '')}

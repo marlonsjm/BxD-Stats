@@ -15,7 +15,7 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
   - **Partida:** Placar completo, estatísticas de todos os jogadores na partida, agrupados por time.
   - **Mapa:** Ranking de melhores jogadores e histórico de partidas para cada mapa específico.
 - **Galeria da Comunidade:** Uma galeria em mosaico com efeito lightbox para exibir os melhores momentos (fotos e vídeos) das partidas.
-- **Design Responsivo:** Interface limpa e moderna inspirada em plataformas como a HLTV, totalmente funcional em desktops e dispositivos móveis.
+- **Design Responsivo:** Interface limpa e moderna inspirada em plataformas como a HLTV. Totalmente funcional em desktops e dispositivos móveis, com **tabelas de dados que se adaptam para um formato de cards em telas pequenas**, garantindo uma excelente experiência de usuário em qualquer dispositivo.
 
 ## 🚀 Stack Tecnológica
 
@@ -30,8 +30,8 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 
 1.  **Clone o repositório:**
     ```bash
-    git clone https://github.com/marlonsjm/web-casa.git
-    cd web-casa
+    git clone https://github.com/marlonsjm/BxD-Stats.git
+    cd BxD-Stats
     ```
 
 2.  **Instale as dependências:**
