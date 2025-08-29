@@ -1,6 +1,8 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { MetricHeader } from "@/components/MetricHeader";
 
 async function getMapData(mapname) {
   const decodedMapname = decodeURIComponent(mapname);
@@ -60,10 +62,10 @@ export default async function MapPage({ params }) {
           <tr className="border-b border-gray-700">
             <th scope="col" className="p-3 text-center font-semibold w-16">Rank</th>
             <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
-            <th scope="col" className="p-3 text-center font-semibold">Kills</th>
-            <th scope="col" className="p-3 text-center font-semibold">Deaths</th>
-            <th scope="col" className="p-3 text-center font-semibold">KDR</th>
-            <th scope="col" className="p-3 text-center font-semibold">+/-</th>
+            <MetricHeader label="Kills" description="Total de abates no mapa." className="p-3 text-center font-semibold" />
+            <MetricHeader label="Deaths" description="Total de mortes no mapa." className="p-3 text-center font-semibold" />
+            <MetricHeader label="KDR" description="Kill/Death Ratio (Kills / Deaths)" className="p-3 text-center font-semibold" />
+            <MetricHeader label="+/-" description="Diferença entre Kills e Deaths" className="p-3 text-center font-semibold" />
           </tr>
         </thead>
         <tbody>
@@ -97,7 +99,7 @@ export default async function MapPage({ params }) {
         <thead className="bg-gray-900/50">
           <tr className="border-b border-gray-700">
             <th scope="col" className="p-3 text-left font-semibold">Times</th>
-            <th scope="col" className="p-3 text-center font-semibold">Placar</th>
+            <MetricHeader label="Placar" description="Resultado da partida no formato: rounds (vitórias na série)" className="p-3 text-center font-semibold" />
             <th scope="col" className="p-3 text-left font-semibold">Vencedor</th>
             <th scope="col" className="p-3 text-left font-semibold">Data</th>
           </tr>
@@ -139,20 +141,22 @@ export default async function MapPage({ params }) {
   );
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
-      <div className="container mx-auto space-y-8">
-        <Breadcrumbs items={breadcrumbItems} />
-        <header className="text-center">
-          <h1 className="text-3xl md:text-4xl font-bold capitalize">
-            Estatísticas de {decodedMapname.replace(/de_|cs_/, '')}
-          </h1>
-          <Link href="/maps" className="text-blue-400 hover:underline mt-2 inline-block">← Voltar para todos os mapas</Link>
-        </header>
+    <TooltipProvider>
+      <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+        <div className="container mx-auto space-y-8">
+          <Breadcrumbs items={breadcrumbItems} />
+          <header className="text-center">
+            <h1 className="text-3xl md:text-4xl font-bold capitalize">
+              Estatísticas de {decodedMapname.replace(/de_|cs_/, '')}
+            </h1>
+            <Link href="/maps" className="text-blue-400 hover:underline mt-2 inline-block">← Voltar para todos os mapas</Link>
+          </header>
 
-        {leaderboard.length > 0 ? renderLeaderboard() : <p>Nenhum ranking disponível para este mapa.</p>}
-        {matchHistory.length > 0 ? renderMatchHistory() : <p>Nenhuma partida encontrada para este mapa.</p>}
+          {leaderboard.length > 0 ? renderLeaderboard() : <p>Nenhum ranking disponível para este mapa.</p>}
+          {matchHistory.length > 0 ? renderMatchHistory() : <p>Nenhuma partida encontrada para este mapa.</p>}
 
-      </div>
-    </main>
+        </div>
+      </main>
+    </TooltipProvider>
   );
 }

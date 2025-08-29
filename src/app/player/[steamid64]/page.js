@@ -1,6 +1,8 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MetricHeader } from "@/components/MetricHeader";
 
 const prisma = new PrismaClient();
 
@@ -81,6 +83,20 @@ async function getPlayerMatchHistory(steamid64) {
   return matches;
 }
 
+const StatCard = ({ value, label, description }) => (
+  <div className="bg-gray-900/50 p-3 rounded-md">
+    <div className="text-2xl font-bold font-mono">{value}</div>
+    <Tooltip>
+      <TooltipTrigger className="cursor-help underline decoration-dotted">
+        <div className="text-sm text-gray-400">{label}</div>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{description}</p>
+      </TooltipContent>
+    </Tooltip>
+  </div>
+);
+
 export default async function PlayerDetailPage({ params }) {
   const { steamid64 } = params;
   const playerData = await getPlayerData(steamid64);
@@ -106,98 +122,76 @@ export default async function PlayerDetailPage({ params }) {
   ];
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
-      <div className="container mx-auto">
-        <Breadcrumbs items={breadcrumbItems} />
-        <header className="mb-8">
-          <Link href="/players" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para o Ranking</Link>
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h1 className="text-3xl md:text-4xl font-bold">{primaryName}</h1>
-            <p className="text-gray-400">SteamID64: {playerData.steamid64}</p>
-            {playerData.names.length > 1 && (
-              <p className="text-sm text-gray-500">Nicks Anteriores: {playerData.names.slice(1).join(', ')}</p>
-            )}
-          </div>
-        </header>
+    <TooltipProvider>
+      <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+        <div className="container mx-auto">
+          <Breadcrumbs items={breadcrumbItems} />
+          <header className="mb-8">
+            <Link href="/players" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para o Ranking</Link>
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+              <h1 className="text-3xl md:text-4xl font-bold">{primaryName}</h1>
+              <p className="text-gray-400">SteamID64: {playerData.steamid64}</p>
+              {playerData.names.length > 1 && (
+                <p className="text-sm text-gray-500">Nicks Anteriores: {playerData.names.slice(1).join(', ')}</p>
+              )}
+            </div>
+          </header>
 
-        {/* Player Stats Summary */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-8">
-          <h2 className="text-xl font-bold mb-4">Estatísticas Gerais</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4 text-center">
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.kdr}</div>
-              <div className="text-sm text-gray-400">KDR</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.hs_percent}%</div>
-              <div className="text-sm text-gray-400">HS%</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.clutches_won}</div>
-              <div className="text-sm text-gray-400">Clutches</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.entry_success_rate}%</div>
-              <div className="text-sm text-gray-400">Entry %</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.kills}</div>
-              <div className="text-sm text-gray-400">Kills</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.deaths}</div>
-              <div className="text-sm text-gray-400">Deaths</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.assists}</div>
-              <div className="text-sm text-gray-400">Assists</div>
-            </div>
-            <div className="bg-gray-900/50 p-3 rounded-md">
-              <div className="text-2xl font-bold font-mono">{playerData.mapsPlayed}</div>
-              <div className="text-sm text-gray-400">Mapas</div>
+          {/* Player Stats Summary */}
+          <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-8">
+            <h2 className="text-xl font-bold mb-4">Estatísticas Gerais</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-4 text-center">
+              <StatCard value={playerData.kdr} label="KDR" description="Kill/Death Ratio (Kills / Deaths)" />
+              <StatCard value={`${playerData.hs_percent}%`} label="HS%" description="Percentual de Headshots" />
+              <StatCard value={playerData.clutches_won} label="Clutches" description="Total de rounds vencidos em uma situação de 1 contra X inimigos" />
+              <StatCard value={`${playerData.entry_success_rate}%`} label="Entry %" description="Percentual de sucesso ao conseguir o primeiro abate para o time no round" />
+              <StatCard value={playerData.kills} label="Kills" description="Total de abates" />
+              <StatCard value={playerData.deaths} label="Deaths" description="Total de mortes" />
+              <StatCard value={playerData.assists} label="Assists" description="Total de assistências" />
+              <StatCard value={playerData.mapsPlayed} label="Mapas" description="Total de mapas jogados" />
             </div>
           </div>
-        </div>
 
-        {/* Match History */}
-        <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
-          <h2 className="text-xl font-bold p-4">Histórico de Partidas</h2>
-          <table className="min-w-full text-sm responsive-table">
-            <thead className="bg-gray-900/50">
-              <tr className="border-b border-gray-700">
-                <th scope="col" className="p-3 text-left font-semibold">Partida</th>
-                <th scope="col" className="p-3 text-left font-semibold">Mapa</th>
-                <th scope="col" className="p-3 text-center font-semibold">K-D</th>
-                <th scope="col" className="p-3 text-center font-semibold">+/-</th>
-                <th scope="col" className="p-3 text-center font-semibold">HS%</th>
-              </tr>
-            </thead>
-            <tbody className="bg-gray-800">
-              {matchHistory.map(stat => {
-                const match = stat.map.match;
-                const diff = stat.kills - stat.deaths;
-                const diffColor = diff > 0 ? 'text-green-500' : diff < 0 ? 'text-red-500' : 'text-gray-400';
-                const diffSign = diff > 0 ? '+' : '';
-                const hs_percent = stat.kills > 0 ? ((stat.head_shot_kills / stat.kills) * 100).toFixed(1) : '0.0';
+          {/* Match History */}
+          <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
+            <h2 className="text-xl font-bold p-4">Histórico de Partidas</h2>
+            <table className="min-w-full text-sm responsive-table">
+              <thead className="bg-gray-900/50">
+                <tr className="border-b border-gray-700">
+                  <th scope="col" className="p-3 text-left font-semibold">Partida</th>
+                  <th scope="col" className="p-3 text-left font-semibold">Mapa</th>
+                  <MetricHeader label="K-D" description="Kills - Deaths na partida" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="+/-" description="Diferença entre Kills e Deaths na partida" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="HS%" description="Percentual de Headshots na partida" className="p-3 text-center font-semibold" />
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800">
+                {matchHistory.map(stat => {
+                  const match = stat.map.match;
+                  const diff = stat.kills - stat.deaths;
+                  const diffColor = diff > 0 ? 'text-green-500' : diff < 0 ? 'text-red-500' : 'text-gray-400';
+                  const diffSign = diff > 0 ? '+' : '';
+                  const hs_percent = stat.kills > 0 ? ((stat.head_shot_kills / stat.kills) * 100).toFixed(1) : '0.0';
 
-                return (
-                  <tr key={`${match.matchid}-${stat.mapid}`} className="last:border-b-0">
-                    <td data-label="Partida" className="p-3 md:text-left">
-                      <Link href={`/match/${match.matchid}`} className="hover:underline">
-                        {match.team1_name} vs {match.team2_name}
-                      </Link>
-                    </td>
-                    <td data-label="Mapa" className="p-3 text-gray-400 md:text-left">{stat.map.mapname}</td>
-                    <td data-label="K-D" className="p-3 font-mono">{`${stat.kills}-${stat.deaths}`}</td>
-                    <td data-label="+/-" className={`p-3 font-mono ${diffColor}`}>{`${diffSign}${diff}`}</td>
-                    <td data-label="HS%" className="p-3 font-mono">{hs_percent}%</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  return (
+                    <tr key={`${match.matchid}-${stat.mapid}`} className="last:border-b-0">
+                      <td data-label="Partida" className="p-3 md:text-left">
+                        <Link href={`/match/${match.matchid}`} className="hover:underline">
+                          {match.team1_name} vs {match.team2_name}
+                        </Link>
+                      </td>
+                      <td data-label="Mapa" className="p-3 text-gray-400 md:text-left">{stat.map.mapname}</td>
+                      <td data-label="K-D" className="p-3 font-mono">{`${stat.kills}-${stat.deaths}`}</td>
+                      <td data-label="+/-" className={`p-3 font-mono ${diffColor}`}>{`${diffSign}${diff}`}</td>
+                      <td data-label="HS%" className="p-3 font-mono">{hs_percent}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </TooltipProvider>
   );
 }

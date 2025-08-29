@@ -104,3 +104,20 @@ Nesta sessão, o foco foi resolver problemas de deploy, integrar um sistema de g
 
 - **Lógica de Ranking Aprimorada:**
   - O ranking principal de jogadores (`/players`) foi alterado. A classificação agora é baseada no **KDR** (Kill/Death Ratio) como critério principal, utilizando o número de **assistências** como fator de desempate.
+
+### 8. Refinamento do Ranking e Implementação Global de Tooltips
+
+Nesta sessão, o foco foi refinar a principal métrica de ranking do site e melhorar drasticamente a usabilidade através da adição de explicações claras para todas as estatísticas.
+
+- **Nova Lógica de Ranking (WLR):**
+  - O ranking principal de jogadores (`/players`) foi reestruturado para usar a **Razão de Vitórias/Derrotas (Win/Loss Ratio - WLR)** como o principal critério de classificação.
+  - O KDR (Kill/Death Ratio) e as Assistências (A) foram mantidos como critérios de desempate, criando uma classificação mais completa que valoriza o impacto do jogador na vitória.
+
+- **Implementação de Tooltips de Métricas:**
+  - Foi implementada uma nova funcionalidade de **tooltips (balões de ajuda)** em todo o site para explicar o significado de cada métrica estatística.
+  - Para garantir consistência e manutenibilidade, um componente reutilizável `MetricHeader` foi criado para os cabeçalhos de tabelas e um `StatCard` para os cards de estatísticas.
+  - A funcionalidade foi aplicada de forma global em todas as páginas de estatísticas, incluindo rankings, históricos e perfis de jogadores/partidas.
+
+- **Correções de Build e CSS:**
+  - Resolvido um erro de build (`Module not found`) causado por um comando `shadcn` depreciado.
+  - Corrigido um desalinhamento de CSS na tabela de ranking principal após a adição de novas colunas.

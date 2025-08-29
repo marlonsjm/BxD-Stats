@@ -1,6 +1,8 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { MetricHeader } from "@/components/MetricHeader";
 
 const prisma = new PrismaClient();
 
@@ -101,52 +103,54 @@ export default async function MatchPage({ params }) {
   ];
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
-      <div className="container mx-auto">
-        <Breadcrumbs items={breadcrumbItems} />
-        <header className="mb-8">
-          <Link href="/matches" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para todas as partidas</Link>
-          <div className="bg-gray-800 p-4 rounded-lg text-center shadow-lg">
-            <p className="text-gray-400">
-              Partida em {match.maps.length > 0 ? match.maps.map(m => m.mapname).join(', ') : 'Mapa Desconhecido'}
-            </p>
-            <div className="flex justify-center items-center text-3xl md:text-4xl font-bold my-2">
-              <span className={`${match.winner === match.team1_name ? 'text-green-400' : ''}`}>{match.team1_name}</span>
-              <span className="mx-4 font-mono">{totalTeam1Rounds} : {totalTeam2Rounds}</span>
-              <span className={`${match.winner === match.team2_name ? 'text-green-400' : ''}`}>{match.team2_name}</span>
+    <TooltipProvider>
+      <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+        <div className="container mx-auto">
+          <Breadcrumbs items={breadcrumbItems} />
+          <header className="mb-8">
+            <Link href="/matches" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para todas as partidas</Link>
+            <div className="bg-gray-800 p-4 rounded-lg text-center shadow-lg">
+              <p className="text-gray-400">
+                Partida em {match.maps.length > 0 ? match.maps.map(m => m.mapname).join(', ') : 'Mapa Desconhecido'}
+              </p>
+              <div className="flex justify-center items-center text-3xl md:text-4xl font-bold my-2">
+                <span className={`${match.winner === match.team1_name ? 'text-green-400' : ''}`}>{match.team1_name}</span>
+                <span className="mx-4 font-mono">{totalTeam1Rounds} : {totalTeam2Rounds}</span>
+                <span className={`${match.winner === match.team2_name ? 'text-green-400' : ''}`}>{match.team2_name}</span>
+              </div>
+              <p className="text-sm text-gray-400">Vencedor: <span className="font-semibold text-green-400">{match.winner}</span></p>
             </div>
-            <p className="text-sm text-gray-400">Vencedor: <span className="font-semibold text-green-400">{match.winner}</span></p>
+          </header>
+
+          <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
+            <table className="min-w-full text-sm responsive-table">
+              <thead className="bg-gray-900/50">
+                <tr className="border-b border-gray-700">
+                  <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
+                  <MetricHeader label="K-D" description="Kills - Deaths" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="+/-" description="Diferença entre Kills e Deaths" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="A" description="Assistências" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="HS%" description="Percentual de Headshots" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="KDR" description="Kill/Death Ratio (Kills / Deaths)" className="p-3 text-center font-semibold" />
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800">
+                {/* Team 1 */}
+                <tr className="bg-gray-900/30 responsive-table-header-group">
+                  <td colSpan="6" className="p-2 font-bold text-lg">{match.team1_name}</td>
+                </tr>
+                {team1Players.map(renderPlayerRow)}
+
+                {/* Team 2 */}
+                <tr className="bg-gray-900/30 responsive-table-header-group">
+                  <td colSpan="6" className="p-2 font-bold text-lg">{match.team2_name}</td>
+                </tr>
+                {team2Players.map(renderPlayerRow)}
+              </tbody>
+            </table>
           </div>
-        </header>
-
-        <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
-          <table className="min-w-full text-sm responsive-table">
-            <thead className="bg-gray-900/50">
-              <tr className="border-b border-gray-700">
-                <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
-                <th scope="col" className="p-3 text-center font-semibold">K-D</th>
-                <th scope="col" className="p-3 text-center font-semibold">+/-</th>
-                <th scope="col" className="p-3 text-center font-semibold">A</th>
-                <th scope="col" className="p-3 text-center font-semibold">HS%</th>
-                <th scope="col" className="p-3 text-center font-semibold">KDR</th>
-              </tr>
-            </thead>
-            <tbody className="bg-gray-800">
-              {/* Team 1 */}
-              <tr className="bg-gray-900/30 responsive-table-header-group">
-                <td colSpan="6" className="p-2 font-bold text-lg">{match.team1_name}</td>
-              </tr>
-              {team1Players.map(renderPlayerRow)}
-
-              {/* Team 2 */}
-              <tr className="bg-gray-900/30 responsive-table-header-group">
-                <td colSpan="6" className="p-2 font-bold text-lg">{match.team2_name}</td>
-              </tr>
-              {team2Players.map(renderPlayerRow)}
-            </tbody>
-          </table>
         </div>
-      </div>
-    </main>
+      </main>
+    </TooltipProvider>
   );
 }
