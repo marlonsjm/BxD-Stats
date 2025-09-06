@@ -6,8 +6,9 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 
 ## ✨ Funcionalidades Principais
 
+- **Ranking por Pontos (RP):** O site apresenta um sistema de ranking robusto inspirado em plataformas competitivas. A pontuação é baseada no **resultado da partida (vitória/derrota)** e ajustada pelo **desempenho individual** (ADR, Kills, Impacto, etc.), criando uma classificação justa que valoriza o trabalho em equipe.
+- **Rankings Detalhados:** Além do ranking geral, a plataforma oferece classificações específicas para métricas como Percentual de Headshots (HS%), Clutches Vencidos e Taxa de Sucesso em Entry Frags.
 - **Histórico de Partidas:** Uma lista completa de todas as partidas jogadas, com placares detalhados, mapas e datas.
-- **Ranking de Jogadores:** Tabela de classificação geral dos jogadores com base em kills, KDR, HS% e outras métricas.
 - **Páginas de Detalhes:**
   - **Jogador:** Estatísticas agregadas e histórico de partidas para cada jogador.
   - **Partida:** Placar completo, estatísticas de todos os jogadores na partida, agrupados por time.

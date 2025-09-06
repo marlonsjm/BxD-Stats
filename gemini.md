@@ -121,3 +121,22 @@ Nesta sessão, o foco foi refinar a principal métrica de ranking do site e melh
 - **Correções de Build e CSS:**
   - Resolvido um erro de build (`Module not found`) causado por um comando `shadcn` depreciado.
   - Corrigido um desalinhamento de CSS na tabela de ranking principal após a adição de novas colunas.
+
+### 9. Novo Sistema de Ranking por Pontos (RP) e Correções
+
+Nesta sessão, o foco foi implementar um sistema de ranking mais robusto e corrigir bugs críticos na agregação de dados.
+
+- **Novo Sistema de Ranking (Inspirado na Gamers Club):**
+  - Foi desenvolvido e implementado um novo sistema de **Ranking por Pontos (RP)**. A lógica, inspirada em plataformas como a Gamers Club, tem a **vitória/derrota como fator principal**.
+  - A pontuação base (+20 para vitória, -15 para derrota) é modulada pelo desempenho individual do jogador na partida (ADR, Kills, Assists, Impacto, etc.).
+  - Este novo ranking foi adicionado à página `/rankings` como o ranking principal.
+
+- **Melhorias na Home Page:**
+  - A seção "Destaques do Servidor" na página inicial agora exibe o **Top 5 do novo Ranking por Pontos**, com uma breve explicação sobre como o sistema funciona, aumentando a visibilidade da métrica mais importante.
+
+- **Correções de Bugs Críticos:**
+  - **Cálculo do ADR:** Foi corrigido um bug crítico na página `/players` onde o **ADR (Dano Médio por Round)** estava sendo calculado incorretamente (dividindo o dano pelo número de mapas em vez do número de rounds), o que inflava os valores.
+  - **Agregação de Dados:** Foi corrigido um bug subsequente na lógica de agregação que fazia com que as estatísticas da primeira partida de cada jogador fossem ignoradas, resultando em um ranking desordenado e impreciso.
+
+- **Melhorias de Documentação:**
+  - O `GEMINI.md` e o `README.md` foram atualizados para refletir as novas funcionalidades e a lógica de ranking aprimorada.

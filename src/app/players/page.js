@@ -11,12 +11,12 @@ import {
 const prisma = new PrismaClient();
 
 async function getPlayerRankings() {
-  // 1. Include map data to get the winner
   const allStats = await prisma.playerStats.findMany({
     include: {
       map: {
         select: {
-          winner: true,
+          team1_score: true,
+          team2_score: true,
         },
       },
     },
@@ -25,69 +25,52 @@ async function getPlayerRankings() {
   const aggregatedPlayers = {};
 
   allStats.forEach(stat => {
+    const roundsInMap = stat.map ? stat.map.team1_score + stat.map.team2_score : 0;
+
     if (!aggregatedPlayers[stat.steamid64]) {
+      // If player is not in the aggregator, create them with the current stats
       aggregatedPlayers[stat.steamid64] = {
         steamid64: stat.steamid64,
-        names: new Set(),
-        kills: 0,
-        deaths: 0,
-        assists: 0,
-        head_shot_kills: 0,
-        mapsPlayed: 0,
-        wins: 0,       // 2. Add wins
-        losses: 0,     // 2. Add losses
+        name: stat.name, // Use the name from the first stat encountered
+        kills: stat.kills,
+        deaths: stat.deaths,
+        assists: stat.assists,
+        head_shot_kills: stat.head_shot_kills,
+        damage: stat.damage,
+        totalRounds: roundsInMap,
+        mapsPlayed: 1,
       };
-    }
-    const player = aggregatedPlayers[stat.steamid64];
-    player.names.add(stat.name);
-    player.kills += stat.kills;
-    player.deaths += stat.deaths;
-    player.assists += stat.assists;
-    player.head_shot_kills += stat.head_shot_kills;
-    player.mapsPlayed += 1;
-
-    // 3. Tally wins and losses by comparing player's team with the map winner
-    if (stat.map && stat.map.winner) {
-      if (stat.map.winner === stat.team) {
-        player.wins += 1;
-      } else {
-        player.losses += 1;
-      }
+    } else {
+      // If player exists, just add the new stats to their totals
+      const player = aggregatedPlayers[stat.steamid64];
+      player.kills += stat.kills;
+      player.deaths += stat.deaths;
+      player.assists += stat.assists;
+      player.head_shot_kills += stat.head_shot_kills;
+      player.damage += stat.damage;
+      player.totalRounds += roundsInMap;
+      player.mapsPlayed += 1;
     }
   });
 
   const players = Object.values(aggregatedPlayers).map(p => {
-    // 4. Calculate KDR and WLR, handling division by zero
     const kdr = p.deaths > 0 ? (p.kills / p.deaths) : p.kills;
-    const wlr = p.losses > 0 ? (p.wins / p.losses) : p.wins;
+    const hs_percent = p.kills > 0 ? ((p.head_shot_kills / p.kills) * 100) : 0;
+    const adr = p.totalRounds > 0 ? (p.damage / p.totalRounds) : 0;
 
     return {
       steamid64: p.steamid64,
-      name: Array.from(p.names)[0],
+      name: p.name,
       kills: p.kills,
       deaths: p.deaths,
       assists: p.assists,
       mapsPlayed: p.mapsPlayed,
       diff: p.kills - p.deaths,
-      hs_percent: p.kills > 0 ? ((p.head_shot_kills / p.kills) * 100).toFixed(1) : '0.0',
-      wins: p.wins,
-      losses: p.losses,
+      hs_percent: hs_percent.toFixed(1),
       kdr: kdr,
-      wlr: wlr,
+      adr: adr,
     };
-  }).sort((a, b) => {
-    // 5. Implement new sorting logic
-    // Primary sort: WLR descending
-    if (b.wlr > a.wlr) return 1;
-    if (b.wlr < a.wlr) return -1;
-
-    // Secondary sort: KDR descending
-    if (b.kdr > a.kdr) return 1;
-    if (b.kdr < a.kdr) return -1;
-
-    // Tertiary sort: Assists descending
-    return b.assists - a.assists;
-  });
+  }).sort((a, b) => b.kills - a.kills);
 
   return players;
 }
@@ -109,7 +92,7 @@ export default async function PlayersPage() {
           <Breadcrumbs items={breadcrumbItems} />
           <header className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold">Ranking de Jogadores</h1>
-            <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores, ordenadas por Win/Loss Ratio (e KDR/Assistências como desempate).</p>
+            <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores, ordenadas por total de Kills.</p>
           </header>
 
           <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
@@ -118,13 +101,12 @@ export default async function PlayersPage() {
                 <tr className="border-b border-gray-700">
                   <th scope="col" className="p-3 text-center font-semibold w-16">Rank</th>
                   <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
-                  <MetricHeader label="W-L" description="Vitórias - Derrotas" />
-                  <MetricHeader label="K-D" description="Kills - Deaths" />
+                  <MetricHeader label="Kills" description="Total de abates" />
+                  <MetricHeader label="Deaths" description="Total de mortes" />
                   <MetricHeader label="+/-" description="Diferença entre Kills e Deaths" />
-                  <MetricHeader label="A" description="Assistências" />
+                  <MetricHeader label="ADR" description="Dano Médio por Round" />
                   <MetricHeader label="HS%" description="Percentual de Headshots" />
                   <MetricHeader label="KDR" description="Kill/Death Ratio (Kills / Deaths)" />
-                  <MetricHeader label="WLR" description="Win/Loss Ratio (Vitórias / Derrotas)" />
                   <MetricHeader label="Mapas" description="Número de mapas jogados" />
                 </tr>
               </thead>
@@ -141,13 +123,12 @@ export default async function PlayersPage() {
                           {player.name}
                         </Link>
                       </td>
-                      <td data-label="W-L" className="p-3 font-mono text-right md:text-center">{`${player.wins}-${player.losses}`}</td>
-                      <td data-label="K-D" className="p-3 font-mono text-right md:text-center">{`${player.kills}-${player.deaths}`}</td>
+                      <td data-label="Kills" className="p-3 font-mono text-right md:text-center">{player.kills}</td>
+                      <td data-label="Deaths" className="p-3 font-mono text-right md:text-center">{player.deaths}</td>
                       <td data-label="+/-" className={`p-3 font-mono text-right md:text-center ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
-                      <td data-label="Assists" className="p-3 font-mono text-right md:text-center">{player.assists}</td>
+                      <td data-label="ADR" className="p-3 font-mono text-right md:text-center">{player.adr.toFixed(0)}</td>
                       <td data-label="HS%" className="p-3 font-mono text-right md:text-center">{player.hs_percent}%</td>
                       <td data-label="KDR" className="p-3 font-mono text-right md:text-center">{player.kdr.toFixed(2)}</td>
-                      <td data-label="WLR" className="p-3 font-mono text-right md:text-center">{player.wlr.toFixed(2)}</td>
                       <td data-label="Mapas" className="p-3 font-mono text-right md:text-center">{player.mapsPlayed}</td>
                     </tr>
                   );
