@@ -90,6 +90,7 @@ model PlayerStats {
   head_shot_kills Int
   cash_earned   Int
   enemies_flashed Int
+  points          Int      @default(0)
 
   // Relation: These stats belong to a single map
   map Map @relation(fields: [matchid, mapnumber], references: [matchid, mapnumber], onDelete: Cascade)

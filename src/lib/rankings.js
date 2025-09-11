@@ -19,80 +19,39 @@ async function getPlayerNames(steamids) {
 }
 
 export async function getOverallRanking(limit = 50) {
-  // 1. Fetch all player stats with map and match details
-  const allPlayerStats = await prisma.playerStats.findMany({
-    include: {
-      map: {
-        include: {
-          match: true, // Include match to know the series winner if needed
-        },
-      },
+  // 1. Aggregate points for all players
+  const playerAggregates = await prisma.playerStats.groupBy({
+    by: ['steamid64'],
+    _sum: {
+      points: true,
+      kills: true,
+      deaths: true,
+      assists: true,
     },
   });
 
-  // 2. Calculate ADR for each map to find the average
-  const adrByMap = {};
-  allPlayerStats.forEach(stat => {
-    const mapKey = `${stat.matchid}-${stat.mapnumber}`;
-    if (!adrByMap[mapKey]) {
-      adrByMap[mapKey] = [];
-    }
-    const roundsPlayed = stat.map.team1_score + stat.map.team2_score;
-    const adr = roundsPlayed > 0 ? stat.damage / roundsPlayed : 0;
-    adrByMap[mapKey].push(adr);
-  });
-
-  const avgAdrByMap = {};
-  for (const mapKey in adrByMap) {
-    const adrs = adrByMap[mapKey];
-    const totalAdr = adrs.reduce((sum, adr) => sum + adr, 0);
-    avgAdrByMap[mapKey] = adrs.length > 0 ? totalAdr / adrs.length : 0;
-  }
-
-  // 3. Aggregate points per player
-  const playerPoints = {};
-
-  allPlayerStats.forEach(stat => {
-    if (!playerPoints[stat.steamid64]) {
-      playerPoints[stat.steamid64] = {
-        steamid64: stat.steamid64,
-        name: stat.name,
-        totalPoints: 0,
-      };
-    }
-
-    const mapKey = `${stat.matchid}-${stat.mapnumber}`;
-    const avgAdr = avgAdrByMap[mapKey] || 0;
-    const roundsPlayed = stat.map.team1_score + stat.map.team2_score;
-    const adr = roundsPlayed > 0 ? stat.damage / roundsPlayed : 0;
-
-    // Determine win/loss
-    const playerWon = stat.team === stat.map.winner;
-    let basePoints = playerWon ? 20 : -15;
-
-    // Performance modifiers
-    const adrModifier = (adr - avgAdr) * 0.1;
-    const killAssistPoints = (stat.kills * 0.2) + (stat.assists * 0.1);
-    const impactPoints = (stat.enemy3ks * 1) + (stat.enemy4ks * 3) + (stat.enemy5ks * 6);
-    const clutchPoints = (stat.v1_wins * 1) + (stat.v2_wins * 3);
-    const entryPoints = (stat.entry_wins * 0.5) - ((stat.entry_count - stat.entry_wins) * 0.2);
-
-    const matchPoints = basePoints + adrModifier + killAssistPoints + impactPoints + clutchPoints + entryPoints;
-    
-    playerPoints[stat.steamid64].totalPoints += matchPoints;
-  });
-
-  // 4. Sort and format for output
-  const rankedPlayers = Object.values(playerPoints)
-    .sort((a, b) => b.totalPoints - a.totalPoints)
+  // 2. Sort the aggregated results in JavaScript and take the top players
+  const sortedPlayers = playerAggregates
+    .sort((a, b) => (b._sum.points || 0) - (a._sum.points || 0))
     .slice(0, limit);
 
-  return rankedPlayers.map((p, index) => ({
-    rank: index + 1,
-    steamid64: p.steamid64.toString(),
-    name: p.name,
-    value: p.totalPoints.toFixed(2),
-  }));
+  // 3. Get player names for the top players
+  const playerNames = await getPlayerNames(sortedPlayers.map(p => p.steamid64));
+
+  // 4. Combine and format the results
+  const rankedPlayers = sortedPlayers.map((p, index) => {
+    const kdr = (p._sum.deaths ?? 0) > 0 ? (p._sum.kills ?? 0) / p._sum.deaths : (p._sum.kills ?? 0);
+    return {
+      rank: index + 1,
+      steamid64: p.steamid64.toString(),
+      name: playerNames.get(p.steamid64.toString()) || `Player ${p.steamid64}`,
+      value: Math.round(p._sum.points ?? 0).toString(),
+      kdr: kdr.toFixed(2),
+      assists: p._sum.assists ?? 0,
+    };
+  });
+
+  return rankedPlayers;
 }
 
 

@@ -140,3 +140,24 @@ Nesta sessão, o foco foi implementar um sistema de ranking mais robusto e corri
 
 - **Melhorias de Documentação:**
   - O `GEMINI.md` e o `README.md` foram atualizados para refletir as novas funcionalidades e a lógica de ranking aprimorada.
+
+### 10. Refatoração do Sistema de Ranking para Performance e Novas Features
+
+Nesta sessão, o foco foi a refatoração completa do sistema de Ranking por Pontos (RP) para garantir performance e escalabilidade, além da implementação de novas funcionalidades e melhorias de usabilidade.
+
+- **Refatoração do Ranking por Pontos (RP):**
+  - O sistema foi alterado de um cálculo em tempo real para um modelo de **pontos armazenados**. Isso resolve um grande gargalo de performance, garantindo que o site continue rápido mesmo com milhares de partidas.
+  - Foi adicionada uma coluna `points` à tabela `PlayerStats` (`matchzy_stats_players`) no banco de dados para armazenar o ganho/perda de RP de cada jogador em cada partida individualmente.
+  - A página de ranking (`/rankings`) foi otimizada para fazer uma agregação `SUM` desses pontos, uma operação extremamente rápida no banco de dados.
+
+- **Correção de Dados e Backfilling:**
+  - Foi detectado um problema de integridade nos dados que foram importados pelo usuário, onde existiam estatísticas de jogadores "órfãs" (sem um mapa correspondente).
+  - Foi criado e executado um script (`prisma/cleanOrphans.js`) para identificar e remover esses dados inconsistentes, garantindo a integridade do banco.
+  - Foi criado e executado um segundo script (`prisma/updatePoints.js`) para calcular e preencher retroativamente os pontos de RP corretos para todas as partidas já existentes no banco.
+
+- **Melhorias na Página de Partida:**
+  - Adicionada a **posição do jogador no ranking geral** ao placar da partida, fornecendo mais contexto sobre os jogadores.
+  - Corrigido o **alinhamento das colunas** na tabela de estatísticas, centralizando os valores para uma aparência mais limpa e profissional.
+
+- **Resolução de Erros:**
+  - Solucionados múltiplos erros de `build` e de runtime do Prisma, incluindo problemas de `EPERM` (bloqueio de arquivo no Windows), `PrismaClientValidationError` (cliente dessincronizado com o schema) e `Inconsistent query result` (causado pelos dados órfãos).

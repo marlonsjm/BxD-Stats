@@ -3,10 +3,11 @@ import { PrismaClient } from '@prisma/client';
 import Link from 'next/link';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
+import { getOverallRanking } from '@/lib/rankings'; // Import the ranking function
 
 const prisma = new PrismaClient();
 
-async function getMatchDetails(matchId) {
+async function getMatchAndRanking(matchId) {
   const match = await prisma.match.findUnique({
     where: { matchid: parseInt(matchId) },
     include: {
@@ -21,11 +22,15 @@ async function getMatchDetails(matchId) {
       },
     },
   });
-  return match;
+
+  const ranking = await getOverallRanking(); // Fetch the overall ranking
+  const rankMap = new Map(ranking.map(p => [p.steamid64, p.rank]));
+
+  return { match, rankMap };
 }
 
 export default async function MatchPage({ params }) {
-  const match = await getMatchDetails(params.match_id);
+  const { match, rankMap } = await getMatchAndRanking(params.match_id);
 
   if (!match) {
     return (
@@ -49,6 +54,7 @@ export default async function MatchPage({ params }) {
           team: stat.team,
           kills: 0, deaths: 0, assists: 0,
           head_shot_kills: 0,
+          points: 0,
         };
       }
       const player = aggregatedPlayers[stat.steamid64];
@@ -56,11 +62,13 @@ export default async function MatchPage({ params }) {
       player.deaths += stat.deaths;
       player.assists += stat.assists;
       player.head_shot_kills += stat.head_shot_kills;
+      player.points += stat.points;
     });
   });
 
   const playersForTable = Object.values(aggregatedPlayers).map(p => ({
     ...p,
+    rank: rankMap.get(p.steamid64.toString()) || 'N/A', // Get rank from the map
     diff: p.kills - p.deaths,
     kdr: p.deaths > 0 ? (p.kills / p.deaths).toFixed(2) : 'N/A',
     hs_percent: p.kills > 0 ? ((p.head_shot_kills / p.kills) * 100).toFixed(1) : '0.0',
@@ -79,19 +87,23 @@ export default async function MatchPage({ params }) {
   const renderPlayerRow = (player) => {
     const diffColor = player.diff > 0 ? 'text-green-500' : player.diff < 0 ? 'text-red-500' : 'text-gray-400';
     const diffSign = player.diff > 0 ? '+' : '';
+    const pointsColor = player.points > 0 ? 'text-green-400' : player.points < 0 ? 'text-red-400' : 'text-gray-400';
+    const pointsSign = player.points > 0 ? '+' : '';
 
     return (
       <tr key={player.steamid64} className="last:border-b-0">
+        <td data-label="Rank" className="p-3 font-mono text-center">{player.rank}</td>
         <td data-label="Jogador" className="p-3 md:text-left">
           <Link href={`/player/${player.steamid64}`} className="text-white hover:underline">
             {player.name}
           </Link>
         </td>
-        <td data-label="K-D" className="p-3 font-mono">{`${player.kills}-${player.deaths}`}</td>
-        <td data-label="+/-" className={`p-3 font-mono ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
-        <td data-label="Assists" className="p-3 font-mono">{player.assists}</td>
-        <td data-label="HS%" className="p-3 font-mono">{player.hs_percent}%</td>
-        <td data-label="KDR" className="p-3 font-mono">{player.kdr}</td>
+        <td data-label="K-D" className="p-3 font-mono text-center">{`${player.kills}-${player.deaths}`}</td>
+        <td data-label="+/-" className={`p-3 font-mono text-center ${diffColor}`}>{`${diffSign}${player.diff}`}</td>
+        <td data-label="Assists" className="p-3 font-mono text-center">{player.assists}</td>
+        <td data-label="HS%" className="p-3 font-mono text-center">{player.hs_percent}%</td>
+        <td data-label="KDR" className="p-3 font-mono text-center">{player.kdr}</td>
+        <td data-label="RP" className={`p-3 font-mono font-bold text-center ${pointsColor}`}>{`${pointsSign}${player.points}`}</td>
       </tr>
     );
   };
@@ -126,24 +138,26 @@ export default async function MatchPage({ params }) {
             <table className="min-w-full text-sm responsive-table">
               <thead className="bg-gray-900/50">
                 <tr className="border-b border-gray-700">
+                  <th scope="col" className="p-3 text-center font-semibold">Rank</th>
                   <th scope="col" className="p-3 text-left font-semibold">Jogador</th>
                   <MetricHeader label="K-D" description="Kills - Deaths" className="p-3 text-center font-semibold" />
                   <MetricHeader label="+/-" description="Diferença entre Kills e Deaths" className="p-3 text-center font-semibold" />
                   <MetricHeader label="A" description="Assistências" className="p-3 text-center font-semibold" />
                   <MetricHeader label="HS%" description="Percentual de Headshots" className="p-3 text-center font-semibold" />
                   <MetricHeader label="KDR" description="Kill/Death Ratio (Kills / Deaths)" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="RP" description="Ranking Points (Pontos de Ranking ganhos/perdidos na partida)" className="p-3 text-center font-semibold" />
                 </tr>
               </thead>
               <tbody className="bg-gray-800">
                 {/* Team 1 */}
                 <tr className="bg-gray-900/30 responsive-table-header-group">
-                  <td colSpan="6" className="p-2 font-bold text-lg">{match.team1_name}</td>
+                  <td colSpan="8" className="p-2 font-bold text-lg">{match.team1_name}</td>
                 </tr>
                 {team1Players.map(renderPlayerRow)}
 
                 {/* Team 2 */}
                 <tr className="bg-gray-900/30 responsive-table-header-group">
-                  <td colSpan="6" className="p-2 font-bold text-lg">{match.team2_name}</td>
+                  <td colSpan="8" className="p-2 font-bold text-lg">{match.team2_name}</td>
                 </tr>
                 {team2Players.map(renderPlayerRow)}
               </tbody>
