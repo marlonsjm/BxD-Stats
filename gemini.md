@@ -179,3 +179,15 @@ Nesta sessão, o foco foi resolver problemas de persistência de dados após a l
     - Jogadores (`/players`)
     - Mapas (`/maps`)
   - Essa mudança garante que o site busque dados frescos do banco de dados a cada requisição, eliminando qualquer atraso na exibição dos resultados das partidas, ideal para o volume de tráfego esperado.
+
+### 12. Integração Externa (Skins MIX)
+
+- **Novo Botão de Navegação:**
+  - Adicionado um botão de destaque "Skins MIX" na barra de navegação (Navbar), tanto na versão Desktop quanto Mobile.
+  - O botão possui um estilo diferenciado (gradiente roxo/rosa) para chamar a atenção e redireciona para uma URL externa (`https://powderblue-parrot-119938.hostingersite.com/`).
+
+### 12. Integração Externa (Skins MIX)
+
+- **Novo Botão de Navegação:**
+  - Adicionado um botão de destaque "Skins MIX" na barra de navegação (Navbar), tanto na versão Desktop quanto Mobile.
+  - O botão possui um estilo diferenciado (gradiente roxo/rosa) para chamar a atenção e redireciona para uma URL externa (`https://powderblue-parrot-119938.hostingersite.com/`).

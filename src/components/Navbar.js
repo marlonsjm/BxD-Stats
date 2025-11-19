@@ -42,6 +42,14 @@ export function Navbar() {
           {navLinks.map(link => (
             <NavLink key={link.href} href={link.href} label={link.label} />
           ))}
+          <Link
+            href="https://powderblue-parrot-119938.hostingersite.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
+          >
+            Skins MIX
+          </Link>
         </nav>
 
         {/* Mobile Navigation */}
