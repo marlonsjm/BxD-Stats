@@ -161,3 +161,21 @@ Nesta sessão, o foco foi a refatoração completa do sistema de Ranking por Pon
 
 - **Resolução de Erros:**
   - Solucionados múltiplos erros de `build` e de runtime do Prisma, incluindo problemas de `EPERM` (bloqueio de arquivo no Windows), `PrismaClientValidationError` (cliente dessincronizado com o schema) e `Inconsistent query result` (causado pelos dados órfãos).
+
+### 11. Limpeza de Dados e Configuração de Cache Dinâmico
+
+Nesta sessão, o foco foi resolver problemas de persistência de dados após a limpeza do banco e garantir que o site exiba informações em tempo real.
+
+- **Script de Limpeza do Banco de Dados:**
+  - Criado o script `prisma/clean.js` para limpar corretamente todas as tabelas do banco de dados (`PlayerStats`, `Map`, `Match`), respeitando as dependências e evitando registros órfãos.
+  - Isso foi necessário pois a exclusão manual de tabelas no banco SQL não acionava a remoção em cascata devido ao `relationMode = "prisma"`.
+
+- **Configuração de Fetching Dinâmico (Real-time):**
+  - Identificado que o Next.js estava fazendo cache das páginas estáticas (SSG), o que causava delay na atualização dos dados no site de produção.
+  - Implementada a configuração `export const dynamic = 'force-dynamic'` nas principais páginas do site:
+    - Home (`/`)
+    - Histórico de Partidas (`/matches`)
+    - Rankings (`/rankings`)
+    - Jogadores (`/players`)
+    - Mapas (`/maps`)
+  - Essa mudança garante que o site busque dados frescos do banco de dados a cada requisição, eliminando qualquer atraso na exibição dos resultados das partidas, ideal para o volume de tráfego esperado.

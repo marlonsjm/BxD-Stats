@@ -6,6 +6,8 @@ import { getOverallRanking, getHeadshotRankings, getClutchRankings, getEntryFrag
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
 
+export const dynamic = 'force-dynamic';
+
 function RankingTable({ title, description, data, columnHeader, columnDescription }) {
   return (
     <Card className="bg-gray-800 border-gray-700 text-white md:rounded-lg">
@@ -20,8 +22,8 @@ function RankingTable({ title, description, data, columnHeader, columnDescriptio
               <tr>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Rank</th>
                 <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Player</th>
-                <MetricHeader 
-                  label={columnHeader} 
+                <MetricHeader
+                  label={columnHeader}
                   description={columnDescription}
                   className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                 />
@@ -80,12 +82,12 @@ export default async function RankingsPage() {
           <p className="text-gray-400 mt-2">Explore as classificações de jogadores por categorias específicas.</p>
         </header>
         <div className="space-y-8">
-          <RankingTable 
-            title="Ranking Geral por Pontos" 
+          <RankingTable
+            title="Ranking Geral por Pontos"
             description={generalRankingDescription}
-            data={overallRanking} 
-            columnHeader="Pontos" 
-            columnDescription={metricDescriptions["Pontos"]} 
+            data={overallRanking}
+            columnHeader="Pontos"
+            columnDescription={metricDescriptions["Pontos"]}
           />
           <RankingTable title="Top Headshots" data={headshotRankings} columnHeader="HS %" columnDescription={metricDescriptions["HS %"]} />
           <RankingTable title="Top Clutches (1vX)" data={clutchRankings} columnHeader="Clutches Won" columnDescription={metricDescriptions["Clutches Won"]} />

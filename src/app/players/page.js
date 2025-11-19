@@ -8,6 +8,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+export const dynamic = 'force-dynamic';
+
 const prisma = new PrismaClient();
 
 async function getPlayerRankings() {

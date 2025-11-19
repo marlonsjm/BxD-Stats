@@ -4,6 +4,8 @@ import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
 
+export const dynamic = 'force-dynamic';
+
 async function getAllMatches() {
   const matches = await prisma.match.findMany({
     include: {

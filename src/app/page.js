@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { getCloudinaryImages } from "./gallery/actions";
 
+export const dynamic = 'force-dynamic';
+
 async function getTopPlayers() {
   const allStats = await prisma.playerStats.findMany({
     select: {
@@ -50,14 +52,14 @@ async function getOverallStats() {
 
 // Helper function to get random items from an array
 function getRandomItems(arr, num) {
-    if (!arr || arr.length === 0) {
-        return [];
-    }
-    if (arr.length <= num) {
-        return arr;
-    }
-    const shuffled = [...arr].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, num);
+  if (!arr || arr.length === 0) {
+    return [];
+  }
+  if (arr.length <= num) {
+    return arr;
+  }
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, num);
 }
 
 export default async function Home() {
@@ -109,15 +111,15 @@ export default async function Home() {
         </section>
 
         <section className="text-center">
-            <Link href="/players" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
-              Ver Ranking Completo
-            </Link>
+          <Link href="/players" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+            Ver Ranking Completo
+          </Link>
         </section>
 
         <section className="text-center">
           <h2 className="text-3xl font-bold text-center mb-8">Galeria da Comunidade</h2>
           <p className="text-gray-400 mb-4">Veja as melhores fotos e vídeos das nossas partidas.</p>
-          
+
           {randomImages.length > 0 && (
             <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
               {randomImages.map((image) => (

@@ -2,6 +2,8 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 async function getMapStats() {
   const maps = await prisma.map.groupBy({
     by: ["mapname"],
