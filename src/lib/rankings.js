@@ -122,6 +122,37 @@ export async function getClutchRankings(limit = 50) {
   }));
 }
 
+export async function getMultiKillRankings(limit = 50) {
+  const result = await prisma.playerStats.groupBy({
+    by: ['steamid64'],
+    _sum: {
+      enemy3ks: true,
+      enemy4ks: true,
+      enemy5ks: true,
+    },
+  });
+
+  const rankings = result.map(r => ({
+    steamid64: r.steamid64,
+    total: (r._sum.enemy3ks || 0) + (r._sum.enemy4ks || 0) + (r._sum.enemy5ks || 0),
+    enemy3ks: r._sum.enemy3ks || 0,
+    enemy4ks: r._sum.enemy4ks || 0,
+    enemy5ks: r._sum.enemy5ks || 0,
+  })).sort((a, b) => b.total - a.total).slice(0, limit);
+
+  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+
+  return rankings.map((r, index) => ({
+    rank: index + 1,
+    steamid64: r.steamid64.toString(),
+    name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
+    value: r.total.toString(),
+    enemy3ks: r.enemy3ks,
+    enemy4ks: r.enemy4ks,
+    enemy5ks: r.enemy5ks,
+  }));
+}
+
 export async function getEntryFragRankings(limit = 50) {
   const result = await prisma.playerStats.groupBy({
     by: ['steamid64'],

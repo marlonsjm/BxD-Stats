@@ -2,7 +2,7 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getOverallRanking, getHeadshotRankings, getClutchRankings, getEntryFragRankings } from "@/lib/rankings";
+import { getOverallRanking, getHeadshotRankings, getClutchRankings, getEntryFragRankings, getMultiKillRankings } from "@/lib/rankings";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
 
@@ -49,12 +49,56 @@ function RankingTable({ title, description, data, columnHeader, columnDescriptio
   );
 }
 
+function MultiKillTable({ data }) {
+  return (
+    <Card className="bg-gray-800 border-gray-700 text-white md:rounded-lg">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold text-white">Top Multi-Kills</CardTitle>
+        <p className="text-gray-400 text-sm mt-2">Jogadores com mais rounds de alto impacto (3K, 4K e ACE).</p>
+      </CardHeader>
+      <CardContent className="p-0 md:p-6">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm responsive-table">
+            <thead className="bg-gray-900">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider w-16">Rank</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Player</th>
+                <MetricHeader label="Total" description="Total de rounds com 3K, 4K ou 5K" className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider" />
+                <MetricHeader label="3K" description="Rounds com 3 kills" className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider" />
+                <MetricHeader label="4K" description="Rounds com 4 kills" className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider" />
+                <MetricHeader label="ACE" description="Rounds com 5 kills (ace)" className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider" />
+              </tr>
+            </thead>
+            <tbody className="bg-gray-800">
+              {data.map((player) => (
+                <tr key={player.rank} className="last:border-b-0">
+                  <td data-label="Rank" className="px-4 py-3 font-medium text-left">{player.rank}</td>
+                  <td data-label="Player" className="px-4 py-3 text-left">
+                    <Link href={`/player/${player.steamid64}`} className="hover:text-white hover:underline">
+                      {player.name}
+                    </Link>
+                  </td>
+                  <td data-label="Total" className="px-4 py-3 font-bold text-center">{player.value}</td>
+                  <td data-label="3K" className="px-4 py-3 text-yellow-400 font-mono text-center">{player.enemy3ks}</td>
+                  <td data-label="4K" className="px-4 py-3 text-orange-400 font-mono text-center">{player.enemy4ks}</td>
+                  <td data-label="ACE" className="px-4 py-3 text-red-400 font-bold font-mono text-center">{player.enemy5ks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function RankingsPage() {
-  const [overallRanking, headshotRankings, clutchRankings, entryFragRankings] = await Promise.all([
+  const [overallRanking, headshotRankings, clutchRankings, entryFragRankings, multiKillRankings] = await Promise.all([
     getOverallRanking(),
     getHeadshotRankings(),
     getClutchRankings(),
     getEntryFragRankings(),
+    getMultiKillRankings(),
   ]);
 
   const breadcrumbItems = [
@@ -89,6 +133,7 @@ export default async function RankingsPage() {
             columnHeader="Pontos"
             columnDescription={metricDescriptions["Pontos"]}
           />
+          <MultiKillTable data={multiKillRankings} />
           <RankingTable title="Top Headshots" data={headshotRankings} columnHeader="HS %" columnDescription={metricDescriptions["HS %"]} />
           <RankingTable title="Top Clutches (1vX)" data={clutchRankings} columnHeader="Clutches Won" columnDescription={metricDescriptions["Clutches Won"]} />
           <RankingTable title="Top Entry Fraggers" data={entryFragRankings} columnHeader="Entry Success Rate" columnDescription={metricDescriptions["Entry Success Rate"]} />

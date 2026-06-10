@@ -1,5 +1,5 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import {
   Tooltip,
@@ -10,30 +10,29 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const prisma = new PrismaClient();
-
 async function getPlayerRankings() {
-  const allStats = await prisma.playerStats.findMany({
-    include: {
-      map: {
-        select: {
-          team1_score: true,
-          team2_score: true,
-        },
-      },
-    },
+  const [allStats, allMaps] = await Promise.all([
+    prisma.playerStats.findMany(),
+    prisma.map.findMany({
+      select: { matchid: true, mapnumber: true, team1_score: true, team2_score: true },
+    }),
+  ]);
+
+  const mapLookup = {};
+  allMaps.forEach(m => {
+    mapLookup[`${m.matchid}-${m.mapnumber}`] = m;
   });
 
   const aggregatedPlayers = {};
 
   allStats.forEach(stat => {
-    const roundsInMap = stat.map ? stat.map.team1_score + stat.map.team2_score : 0;
+    const mapData = mapLookup[`${stat.matchid}-${stat.mapnumber}`];
+    const roundsInMap = mapData ? mapData.team1_score + mapData.team2_score : 0;
 
     if (!aggregatedPlayers[stat.steamid64]) {
-      // If player is not in the aggregator, create them with the current stats
       aggregatedPlayers[stat.steamid64] = {
-        steamid64: stat.steamid64,
-        name: stat.name, // Use the name from the first stat encountered
+        steamid64: stat.steamid64.toString(),
+        name: stat.name,
         kills: stat.kills,
         deaths: stat.deaths,
         assists: stat.assists,
@@ -43,7 +42,6 @@ async function getPlayerRankings() {
         mapsPlayed: 1,
       };
     } else {
-      // If player exists, just add the new stats to their totals
       const player = aggregatedPlayers[stat.steamid64];
       player.kills += stat.kills;
       player.deaths += stat.deaths;

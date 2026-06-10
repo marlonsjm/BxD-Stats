@@ -1,11 +1,9 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
-import { getOverallRanking } from '@/lib/rankings'; // Import the ranking function
-
-const prisma = new PrismaClient();
+import { getOverallRanking } from '@/lib/rankings';
 
 async function getMatchAndRanking(matchId) {
   const match = await prisma.match.findUnique({
@@ -30,7 +28,8 @@ async function getMatchAndRanking(matchId) {
 }
 
 export default async function MatchPage({ params }) {
-  const { match, rankMap } = await getMatchAndRanking(params.match_id);
+  const { match_id } = await params;
+  const { match, rankMap } = await getMatchAndRanking(match_id);
 
   if (!match) {
     return (

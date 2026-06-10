@@ -186,8 +186,58 @@ Nesta sessão, o foco foi resolver problemas de persistência de dados após a l
   - Adicionado um botão de destaque "Skins MIX" na barra de navegação (Navbar), tanto na versão Desktop quanto Mobile.
   - O botão possui um estilo diferenciado (gradiente roxo/rosa) para chamar a atenção e redireciona para uma URL externa (`https://powderblue-parrot-119938.hostingersite.com/`).
 
-### 12. Integração Externa (Skins MIX)
+---
 
-- **Novo Botão de Navegação:**
-  - Adicionado um botão de destaque "Skins MIX" na barra de navegação (Navbar), tanto na versão Desktop quanto Mobile.
-  - O botão possui um estilo diferenciado (gradiente roxo/rosa) para chamar a atenção e redireciona para uma URL externa (`https://powderblue-parrot-119938.hostingersite.com/`).
+### 13. Correção Crítica na Rota `/players` e Migração do Projeto (Claude Code)
+
+Nesta sessão, o foco foi diagnosticar e corrigir a rota `/players` que estava quebrando, e documentar o processo correto de setup local.
+
+- **Diagnóstico e Correção da Rota `/players`:**
+  - **Bug 1 — Prisma client não gerado:** O erro `@prisma/client did not initialize yet. Please run "prisma generate"` ocorria porque o cliente do Prisma não é gerado automaticamente após um `git clone`. O passo `npx prisma generate` é obrigatório no setup inicial e foi adicionado ao fluxo documentado.
+  - **Bug 2 — Instância duplicada do PrismaClient:** A `players/page.js` criava `new PrismaClient()` diretamente no módulo em vez de usar o singleton compartilhado de `@/lib/prisma`. Isso causa conflito de conexões e falha no module loader do Next.js. Corrigido substituindo pela importação `import prisma from '@/lib/prisma'`.
+  - **Bug 3 — Registros órfãos no banco quebrando o `include`:** A query usava `include: { map }` em uma relação obrigatória, mas existem registros em `PlayerStats` sem um `Map` correspondente no banco (órfãos). O Prisma lança `PrismaClientUnknownRequestError: Inconsistent query result: Field map is required to return data, got null instead`. Corrigido separando a query em dois `findMany` paralelos (`playerStats` e `map`) e fazendo o join manualmente via objeto de lookup (`mapLookup`). Essa abordagem tolera órfãos sem quebrar a página.
+  - **Bug 4 — `steamid64` como `BigInt`:** O campo `steamid64` retornado pelo Prisma é um `BigInt`, que pode causar erros de serialização no React Server Components. Corrigido adicionando `.toString()` ao criar o objeto do jogador no agregador.
+
+- **Problema de Ambiente — Projeto no OneDrive:**
+  - O erro `EPERM: operation not permitted, rename ... query_engine-windows.dll.node` ocorre porque o projeto está dentro da pasta do OneDrive. O OneDrive trava arquivos binários durante a sincronização, impedindo que o `prisma generate` sobrescreva o query engine.
+  - **Solução paliativa:** Pausar a sincronização do OneDrive antes de rodar `npx prisma generate`.
+  - **Solução definitiva:** Mover o projeto para fora do OneDrive (ex: `C:\Projects\BxD-Stats`). O versionamento via `git push` ao GitHub já garante o backup do código, tornando o OneDrive desnecessário para esse fim.
+
+- **Setup Local Correto (ordem dos comandos):**
+  ```bash
+  git clone https://github.com/marlonsjm/BxD-Stats.git
+  cd BxD-Stats
+  npm install
+  npx prisma generate   # ← obrigatório, não pular
+  npm run dev
+  ```
+
+---
+
+### 14. Novos Stats, Correções de Bugs e Compatibilidade com Next.js 15 (Claude Code)
+
+Nesta sessão, o foco foi auditar o projeto completo, corrigir bugs críticos que persistiam no código e adicionar novas estatísticas inspiradas no HLTV.
+
+#### Bugs Corrigidos
+
+- **Bug 1 — `new PrismaClient()` nas rotas de detalhe:** As páginas `player/[steamid64]/page.js` e `match/[match_id]/page.js` ainda criavam `new PrismaClient()` diretamente, ignorando o singleton de `@/lib/prisma`. Causava conflito de conexões em produção. Corrigido substituindo pela importação do singleton em ambos os arquivos.
+
+- **Bug 2 — `params` não awaited (Next.js 15):** No Next.js 15, o objeto `params` das rotas dinâmicas é uma `Promise` e deve ser aguardado com `await` antes de acessar suas propriedades. O acesso direto (`params.steamid64`, `params.match_id`, `params.mapname`) lança um erro de runtime. Corrigido com `const { steamid64 } = await params` nas três rotas dinâmicas: `/player/[steamid64]`, `/match/[match_id]` e `/map/[mapname]`.
+
+- **Bug 3 — Órfãos em `PlayerStats` sem `Map` quebrando o perfil do jogador:** A função `getPlayerMatchHistory` usava `include: { map: { include: { match: true } } }`, que lança `Inconsistent query result: Field map is required to return data, got null instead` quando existem registros em `PlayerStats` sem um `Map` correspondente. Corrigido com a mesma estratégia de três queries separados: `playerStats.findMany` sem includes, `map.findMany` e `match.findMany` com lookup manual, filtrando silenciosamente os órfãos.
+
+- **Bug 4 — Key incorreta no histórico de partidas do jogador:** A tabela de histórico usava `stat.mapid` como chave React, mas esse campo não existe em `PlayerStats`. Corrigido para `${stat.matchid}-${stat.mapnumber}`.
+
+#### Novos Stats no Perfil do Jogador (`/player/[steamid]`)
+
+- **ADR (Dano Médio por Round):** Adicionado ao card de estatísticas gerais. Calculado corretamente dividindo o dano total pelo total de rounds jogados (somando `team1_score + team2_score` de cada mapa). A query foi estendida com `damage` no aggregate e uma query adicional para buscar os `Map` do jogador e calcular `totalRounds`.
+
+- **Accuracy (Precisão):** Novo stat calculado como `shots_on_target_total / shots_fired_total * 100`. Exibido no card de estatísticas gerais.
+
+- **Seção Multi-Kills:** Nova seção dedicada no perfil com cards coloridos para **3K** (amarelo), **4K** (laranja) e **ACE/5K** (vermelho), usando os campos `enemy3ks`, `enemy4ks` e `enemy5ks` já disponíveis no banco.
+
+- **Histórico de Partidas aprimorado:** Adicionadas as colunas **Assists** e **ADR por mapa** à tabela de histórico individual, com ADR calculado por `stat.damage / (map.team1_score + map.team2_score)`.
+
+#### Novo Ranking (`/rankings`)
+
+- **Top Multi-Kills:** Nova função `getMultiKillRankings()` adicionada a `src/lib/rankings.js`, agregando `enemy3ks + enemy4ks + enemy5ks` por jogador. Na página `/rankings`, exibida como tabela customizada `MultiKillTable` com colunas separadas para **Total**, **3K**, **4K** e **ACE**, posicionada logo abaixo do ranking geral por pontos.

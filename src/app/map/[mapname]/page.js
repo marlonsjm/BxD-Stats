@@ -45,7 +45,7 @@ async function getMapData(mapname) {
 }
 
 export default async function MapPage({ params }) {
-  const { mapname } = params;
+  const { mapname } = await params;
   const { leaderboard, matchHistory, decodedMapname } = await getMapData(mapname);
 
   const breadcrumbItems = [
