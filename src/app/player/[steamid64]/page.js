@@ -94,9 +94,11 @@ async function getPlayerMatchHistory(steamid64) {
   const [maps, matches] = await Promise.all([
     prisma.map.findMany({
       where: { OR: mapKeys.map(k => ({ matchid: k.matchid, mapnumber: k.mapnumber })) },
+      select: { matchid: true, mapnumber: true, mapname: true, team1_score: true, team2_score: true },
     }),
     prisma.match.findMany({
       where: { matchid: { in: matchIds } },
+      select: { matchid: true, team1_name: true, team2_name: true, winner: true },
     }),
   ]);
 

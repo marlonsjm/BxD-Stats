@@ -3,17 +3,34 @@ import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
-import { getOverallRanking } from '@/lib/rankings';
+import { getKillsRanking } from '@/lib/rankings';
 
 async function getMatchAndRanking(matchId) {
   const match = await prisma.match.findUnique({
     where: { matchid: parseInt(matchId) },
-    include: {
+    select: {
+      matchid: true,
+      winner: true,
+      team1_name: true,
+      team1_score: true,
+      team2_name: true,
+      team2_score: true,
       maps: {
-        include: {
+        select: {
+          mapname: true,
+          team1_score: true,
+          team2_score: true,
           player_stats: {
-            orderBy: {
-              kills: 'desc',
+            orderBy: { kills: 'desc' },
+            select: {
+              steamid64: true,
+              name: true,
+              team: true,
+              kills: true,
+              deaths: true,
+              assists: true,
+              head_shot_kills: true,
+              points: true,
             },
           },
         },
@@ -21,7 +38,7 @@ async function getMatchAndRanking(matchId) {
     },
   });
 
-  const ranking = await getOverallRanking(); // Fetch the overall ranking
+  const ranking = await getKillsRanking();
   const rankMap = new Map(ranking.map(p => [p.steamid64, p.rank]));
 
   return { match, rankMap };

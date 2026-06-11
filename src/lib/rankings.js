@@ -18,40 +18,42 @@ async function getPlayerNames(steamids) {
   return nameMap;
 }
 
-export async function getOverallRanking(limit = 50) {
-  // 1. Aggregate points for all players
+export async function getKillsRanking(limit = 50) {
   const playerAggregates = await prisma.playerStats.groupBy({
     by: ['steamid64'],
     _sum: {
-      points: true,
       kills: true,
       deaths: true,
       assists: true,
     },
+    _count: {
+      steamid64: true,
+    },
   });
 
-  // 2. Sort the aggregated results in JavaScript and take the top players
   const sortedPlayers = playerAggregates
-    .sort((a, b) => (b._sum.points || 0) - (a._sum.points || 0))
+    .sort((a, b) => (b._sum.kills || 0) - (a._sum.kills || 0))
     .slice(0, limit);
 
-  // 3. Get player names for the top players
   const playerNames = await getPlayerNames(sortedPlayers.map(p => p.steamid64));
 
-  // 4. Combine and format the results
-  const rankedPlayers = sortedPlayers.map((p, index) => {
-    const kdr = (p._sum.deaths ?? 0) > 0 ? (p._sum.kills ?? 0) / p._sum.deaths : (p._sum.kills ?? 0);
+  return sortedPlayers.map((p, index) => {
+    const kills = p._sum.kills ?? 0;
+    const deaths = p._sum.deaths ?? 0;
+    const maps = p._count.steamid64;
+    const kdr = deaths > 0 ? kills / deaths : kills;
     return {
       rank: index + 1,
       steamid64: p.steamid64.toString(),
       name: playerNames.get(p.steamid64.toString()) || `Player ${p.steamid64}`,
-      value: Math.round(p._sum.points ?? 0).toString(),
+      value: kills.toString(),
+      kills,
+      deaths,
+      diff: kills - deaths,
       kdr: kdr.toFixed(2),
-      assists: p._sum.assists ?? 0,
+      maps,
     };
   });
-
-  return rankedPlayers;
 }
 
 
@@ -150,6 +152,63 @@ export async function getMultiKillRankings(limit = 50) {
     enemy3ks: r.enemy3ks,
     enemy4ks: r.enemy4ks,
     enemy5ks: r.enemy5ks,
+  }));
+}
+
+export async function getADRRanking(limit = 50) {
+  const playerAggregates = await prisma.playerStats.groupBy({
+    by: ['steamid64'],
+    _sum: { damage: true },
+    _count: { steamid64: true },
+    having: { steamid64: { _count: { gt: 5 } } },
+  });
+
+  const rankings = playerAggregates
+    .map(p => ({
+      steamid64: p.steamid64,
+      avg_damage: p._count.steamid64 > 0 ? p._sum.damage / p._count.steamid64 : 0,
+      maps: p._count.steamid64,
+    }))
+    .sort((a, b) => b.avg_damage - a.avg_damage)
+    .slice(0, limit);
+
+  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+
+  return rankings.map((r, index) => ({
+    rank: index + 1,
+    steamid64: r.steamid64.toString(),
+    name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
+    value: r.avg_damage.toFixed(1),
+  }));
+}
+
+export async function getAccuracyRanking(limit = 50) {
+  const result = await prisma.playerStats.groupBy({
+    by: ['steamid64'],
+    _sum: {
+      shots_fired_total: true,
+      shots_on_target_total: true,
+    },
+    having: { shots_fired_total: { _sum: { gt: 500 } } },
+  });
+
+  const rankings = result
+    .map(r => ({
+      steamid64: r.steamid64,
+      accuracy: r._sum.shots_fired_total > 0
+        ? (r._sum.shots_on_target_total / r._sum.shots_fired_total) * 100
+        : 0,
+    }))
+    .sort((a, b) => b.accuracy - a.accuracy)
+    .slice(0, limit);
+
+  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+
+  return rankings.map((r, index) => ({
+    rank: index + 1,
+    steamid64: r.steamid64.toString(),
+    name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
+    value: `${r.accuracy.toFixed(2)}%`,
   }));
 }
 

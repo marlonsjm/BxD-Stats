@@ -7,10 +7,16 @@ import { MetricHeader } from "@/components/MetricHeader";
 async function getMapData(mapname) {
   const decodedMapname = decodeURIComponent(mapname);
 
-  // Get all player stats for this specific map for the leaderboard
-  const playerStatsOnMap = await prisma.playerStats.findMany({
-    where: { map: { mapname: decodedMapname } },
+  const mapInstances = await prisma.map.findMany({
+    where: { mapname: decodedMapname },
+    select: { matchid: true, mapnumber: true },
   });
+
+  const playerStatsOnMap = mapInstances.length > 0
+    ? await prisma.playerStats.findMany({
+        where: { OR: mapInstances.map(m => ({ matchid: m.matchid, mapnumber: m.mapnumber })) },
+      })
+    : [];
 
   const leaderboard = {};
   playerStatsOnMap.forEach(stat => {
@@ -37,7 +43,22 @@ async function getMapData(mapname) {
   // Get match history for this map, including map details for round scores
   const matchHistory = await prisma.match.findMany({
     where: { maps: { some: { mapname: decodedMapname } } },
-    include: { maps: true }, // Include map data
+    select: {
+      matchid: true,
+      start_time: true,
+      winner: true,
+      team1_name: true,
+      team1_score: true,
+      team2_name: true,
+      team2_score: true,
+      maps: {
+        select: {
+          mapname: true,
+          team1_score: true,
+          team2_score: true,
+        },
+      },
+    },
     orderBy: { start_time: 'desc' },
   });
 

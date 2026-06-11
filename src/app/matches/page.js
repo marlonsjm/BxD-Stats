@@ -8,12 +8,23 @@ export const dynamic = 'force-dynamic';
 
 async function getAllMatches() {
   const matches = await prisma.match.findMany({
-    include: {
-      maps: true, // Include map data to show the map name
+    select: {
+      matchid: true,
+      start_time: true,
+      winner: true,
+      team1_name: true,
+      team1_score: true,
+      team2_name: true,
+      team2_score: true,
+      maps: {
+        select: {
+          mapname: true,
+          team1_score: true,
+          team2_score: true,
+        },
+      },
     },
-    orderBy: {
-      start_time: 'desc',
-    },
+    orderBy: { start_time: 'desc' },
   });
   return matches;
 }
