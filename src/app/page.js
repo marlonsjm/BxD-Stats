@@ -4,8 +4,10 @@ import { PlayerCard } from "@/components/PlayerCard";
 import Image from "next/image";
 import Link from "next/link";
 import { getCloudinaryImages } from "./gallery/actions";
+import { getPlayerAvatars } from "@/lib/steam";
 
-export const dynamic = 'force-dynamic';
+// Cache com revalidação: o banco é consultado no máximo a cada 5 minutos por página
+export const revalidate = 300;
 
 async function getTopPlayers() {
   const allStats = await prisma.playerStats.findMany({
@@ -29,7 +31,14 @@ async function getTopPlayers() {
   });
 
   const sortedPlayers = Object.values(aggregatedPlayers).sort((a, b) => b.kills - a.kills);
-  return sortedPlayers.slice(0, 5);
+  const topPlayers = sortedPlayers.slice(0, 5);
+
+  const avatars = await getPlayerAvatars(topPlayers.map(p => p.steamid64.toString()));
+  topPlayers.forEach(p => {
+    p.avatar = avatars.get(p.steamid64.toString())?.medium || null;
+  });
+
+  return topPlayers;
 }
 
 async function getOverallStats() {
@@ -72,26 +81,40 @@ export default async function Home() {
   const randomImages = getRandomItems(allImages, 3);
 
   const StatCard = ({ value, label }) => (
-    <div className="bg-gray-800 p-6 rounded-lg text-center shadow-lg">
+    <div className="bg-gray-800 p-4 md:p-6 rounded-lg text-center shadow-lg">
       <p className="text-3xl md:text-4xl font-bold font-mono text-white">{value.toLocaleString('pt-BR')}</p>
       <p className="text-sm text-gray-400 mt-1">{label}</p>
     </div>
   );
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
-      <div className="container mx-auto space-y-16">
-        <section className="text-center pt-16 pb-8">
+    <div className="text-white py-4 md:py-8">
+      <div className="container mx-auto space-y-12 md:space-y-16">
+        <section className="text-center pt-8 md:pt-16 pb-4 md:pb-8">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-4 font-orbitron">
             BxD STATS
           </h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
             Acompanhe as estatísticas, veja os resultados das partidas e o ranking dos jogadores do nosso servidor.
           </p>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/matches"
+              className="inline-flex w-full sm:w-auto items-center justify-center min-h-[48px] bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold px-8 rounded-lg transition-colors"
+            >
+              Ver Partidas
+            </Link>
+            <Link
+              href="/rankings"
+              className="inline-flex w-full sm:w-auto items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold px-8 rounded-lg transition-colors"
+            >
+              Ver Rankings
+            </Link>
+          </div>
         </section>
 
         <section>
-          <h2 className="text-3xl font-bold text-center mb-8">Estatísticas Gerais</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">Estatísticas Gerais</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <StatCard value={overallStats.totalMatches} label="Partidas Jogadas" />
             <StatCard value={overallStats.totalKills} label="Kills Totais" />
@@ -102,7 +125,7 @@ export default async function Home() {
         <TopRankings />
 
         <section>
-          <h2 className="text-3xl font-bold text-center mb-8">Top 5 Kills</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">Top 5 Kills</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {topPlayers.map((player, index) => (
               <PlayerCard key={player.steamid64} player={player} rank={index + 1} />
@@ -111,13 +134,13 @@ export default async function Home() {
         </section>
 
         <section className="text-center">
-          <Link href="/players" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+          <Link href="/players" className="inline-flex items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
             Ver Ranking Completo
           </Link>
         </section>
 
         <section className="text-center">
-          <h2 className="text-3xl font-bold text-center mb-8">Galeria da Comunidade</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">Galeria da Comunidade</h2>
           <p className="text-gray-400 mb-4">Veja as melhores fotos e vídeos das nossas partidas.</p>
 
           {randomImages.length > 0 && (
@@ -129,6 +152,7 @@ export default async function Home() {
                       src={image.thumbnail || image.src}
                       alt={image.alt}
                       fill
+                      sizes="(max-width: 640px) 100vw, 33vw"
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                   </div>
@@ -137,11 +161,11 @@ export default async function Home() {
             </div>
           )}
 
-          <Link href="/gallery" className="inline-block bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+          <Link href="/gallery" className="inline-flex items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
             Acessar Galeria
           </Link>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

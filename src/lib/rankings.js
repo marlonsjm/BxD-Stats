@@ -90,7 +90,7 @@ export async function getHeadshotRankings(limit = 50) {
     rank: index + 1,
     steamid64: r.steamid64.toString(),
     name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
-    value: `${r.hs_percentage.toFixed(2)}%`,
+    value: `${r.hs_percentage.toFixed(1)}%`,
   }));
 }
 
@@ -208,7 +208,7 @@ export async function getAccuracyRanking(limit = 50) {
     rank: index + 1,
     steamid64: r.steamid64.toString(),
     name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
-    value: `${r.accuracy.toFixed(2)}%`,
+    value: `${r.accuracy.toFixed(1)}%`,
   }));
 }
 
@@ -240,6 +240,6 @@ export async function getEntryFragRankings(limit = 50) {
     rank: index + 1,
     steamid64: r.steamid64.toString(),
     name: playerNames.get(r.steamid64.toString()) || `Player ${r.steamid64}`,
-    value: `${r.entry_success_rate.toFixed(2)}%`,
+    value: `${r.entry_success_rate.toFixed(1)}%`,
   }));
 }

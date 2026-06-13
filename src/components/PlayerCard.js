@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PlayerAvatar } from '@/components/PlayerAvatar';
 
 export function PlayerCard({ player, rank }) {
   const rankColors = {
@@ -16,10 +17,12 @@ export function PlayerCard({ player, rank }) {
         <div className={`text-xl font-bold ${rankColor} w-8 text-center`}>
           #{rank}
         </div>
-        
+
+        <PlayerAvatar src={player.avatar} name={player.name} size={36} />
+
         {/* Player Name (flexible part) */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white break-all">{player.name}</p>
+          <p className="font-semibold text-white truncate">{player.name}</p>
         </div>
 
         {/* Kills (fixed part) */}

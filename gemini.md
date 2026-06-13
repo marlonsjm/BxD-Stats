@@ -241,3 +241,70 @@ Nesta sessão, o foco foi auditar o projeto completo, corrigir bugs críticos qu
 #### Novo Ranking (`/rankings`)
 
 - **Top Multi-Kills:** Nova função `getMultiKillRankings()` adicionada a `src/lib/rankings.js`, agregando `enemy3ks + enemy4ks + enemy5ks` por jogador. Na página `/rankings`, exibida como tabela customizada `MultiKillTable` com colunas separadas para **Total**, **3K**, **4K** e **ACE**, posicionada logo abaixo do ranking geral por pontos.
+
+---
+
+### 15. Auditorias de UX (Mobile + Desktop), Performance, Rating 2.0, Avatares Steam e Remoção do RP (Claude Code — 12/06/2026)
+
+Sessão extensa de auditoria e melhorias incrementais, **preservando a arquitetura atual** (sem trocar bibliotecas nem reescrever do zero). Todas as alterações foram validadas com `npm run build` + `next start` contra o banco real, testando todas as rotas.
+
+#### Decisão de produto: feature de upload de demos descartada
+- Avaliamos uma feature de upload automático de demos (GOTV/MatchZy → endpoint HTTP). Demos de CS2 chegam a **500MB**, inviabilizando soluções gratuitas sem cartão de crédito (Cloudflare Workers free limita corpo a 100MB; R2 e similares pedem cartão).
+- Como o servidor de CS2 roda no **PC local do Marlon** (ligado só durante as partidas), a feature foi **descartada**. As demos são compartilhadas manualmente via Google Drive/WhatsApp. Não repropor armazenamento de demos em nuvem.
+
+#### Auditoria de UX Mobile
+- **Fundação:** `tailwind.config.js` com padding de container responsivo (1rem mobile → 2rem desktop) e fonte `orbitron` registrada. `layout.js` com skip link ("Pular para o conteúdo"), `themeColor`, template de `<title>` e `<main>` único (removido `<main>` aninhado e padding triplicado em todas as páginas).
+- **Tabelas responsivas (`globals.css`):** reescritas de `pl-24` absoluto para **flexbox** (`data-label` de qualquer tamanho sem sobreposição); breakpoint corrigido de `768px` para `767.98px` (evita conflito com `md:` exatamente em 768px).
+- **Navbar:** o menu mobile (Sheet) agora **fecha ao navegar** (`SheetClose`), tem `SheetTitle` (exigência de a11y do Radix), `aria-label`, touch targets de 44px, CTA "Skins MIX" no menu mobile e `aria-current` no link ativo.
+- **Componentes:** `Footer` com `flex-wrap` e contraste AA; `Breadcrumbs` como `<ol>` semântico com wrap; `TopRankings`/`PlayerCard` com `truncate` em vez de `break-all`.
+- **Home:** CTAs no hero ("Ver Partidas"/"Ver Rankings"), `sizes` nas imagens.
+- **Galeria:** refatorada para **SSR** (fetch movido do `useEffect` client para server component) + novo `GalleryGrid` client com lightbox acessível (fecha com Escape, trava scroll do body, `role="dialog"`, botão 44px).
+- **`loading.js` global:** spinner nas trocas de rota.
+
+#### Performance: troca de `force-dynamic` por ISR
+- **Todas as páginas** trocaram `export const dynamic = 'force-dynamic'` por `export const revalidate = 300` (cache de 5 minutos).
+- Rotas dinâmicas (`/match/[id]`, `/player/[id]`, `/map/[nome]`) receberam também `generateStaticParams()` retornando `[]` — **necessário** para o ISR funcionar por caminho (sem isso, o Next renderiza a cada visita e ignora o `revalidate`).
+- **Ganho medido:** páginas em cache HIT respondem em ~15-40ms (zero queries) vs ~1-2,6s antes. Crucial porque o **TiDB free é compartilhado e hiberna** — menos queries = banco pode hibernar sem afetar visitantes (ISR serve a versão cacheada).
+- **Trade-off:** estatísticas de partida recém-terminada levam até 5 min para aparecer. Ajustável mudando o número `300` (segundos) nos arquivos.
+
+#### Auditoria de UX Desktop (foco em tabelas competitivas)
+- **Tabelas (`stats-table` em `globals.css`):** separadores de linha + hover no desktop (antes as linhas não tinham divisão visual).
+- **Alinhamento numérico:** todos os números à direita com `tabular-nums` (dígitos alinhados verticalmente para comparação); decimais padronizados (ADR=1 casa, KDR=2, percentuais=1 — antes havia "48.57%" vs "48.5%").
+- **Destaque do top 3:** cores ouro/prata/bronze no rank em todas as tabelas.
+- **`/players` — tabela ordenável (`PlayersTable.js`, client component):** ordenação por qualquer coluna (com `aria-sort` e indicador visual), **busca por nome**, cabeçalho **sticky** ao rolar, coluna ordenada destacada.
+- **`/match/[id]`:** ⭐ destaque da partida (MVP), 🏆 + verde no time vencedor dentro da tabela, jogadores ordenados por rating.
+- **`/matches`:** séries MD3 agora listam **todos os mapas** (antes só o primeiro — informação incorreta).
+- **`/rankings`:** as 5 tabelas de 3 colunas agora em **grid de 2 colunas** no desktop (antes: valor a ~1200px do nome em telas largas); navegação por chips com âncoras.
+- **Navegação:** link ativo no Navbar com sublinhado ciano; `Footer` com rótulos consistentes ("Jogadores"/"Rankings") + link de Rankings que faltava.
+- **SEO:** `metadata.title` por página (estático nas listagens, dinâmico via `generateMetadata` nos detalhes — ex.: "LUCAS77 - Estatísticas"). Usa React `cache()` para deduplicar a query entre `generateMetadata` e a página.
+- **Estados:** `TableSkeleton.js` + `loading.js` por rota de dados (skeleton no formato da tabela, não spinner genérico); nota "dados atualizados a cada 5 minutos".
+
+#### Nova feature: Rating 2.0 aproximado (`src/lib/rating.js`)
+- Aproximação da fórmula pública do Rating 2.0 da HLTV usando KPR, DPR, assists/round, impacto e ADR.
+- **Limitação documentada:** o MatchZy não registra **KAST**, então usamos um valor fixo de 68%. Isso desloca todos os ratings pela mesma constante, **preservando a comparação entre jogadores**. O tooltip do site (e o "*" em "Rating 2.0*") explicam isso ao usuário.
+- Exibido em: tabela `/players` (coluna ordenável), perfil (badge grande, verde se ≥1.00), e `/match/[id]` (coluna + define o MVP).
+
+#### Nova feature: Avatares Steam (`src/lib/steam.js`, `PlayerAvatar.js`)
+- Busca em lote via `GetPlayerSummaries` (até 100 ids/chamada), **cache de 24h**, requer env var **`STEAM_API_KEY`** (gratuita em https://steamcommunity.com/dev/apikey).
+- **Fallback gracioso:** sem a key, perfil privado ou erro na API → círculo com a inicial do nick. O site funciona normalmente sem a key.
+- `next.config.mjs` liberou os 3 CDNs de avatar da Steam (`avatars.steamstatic.com`, `akamai`, `fastly`).
+- **Pendência para o Marlon:** gerar a `STEAM_API_KEY` e adicionar no `.env.local` e no painel da Vercel (sem ela, as iniciais são exibidas).
+- Exibido em: tabela `/players` (28px), perfil (80px com borda), `/match/[id]` (28px) e Top 5 da home (36px).
+
+#### Remoção do sistema antigo de Ranking Points (RP)
+- O RP (seção #9-10 acima) foi **removido por completo** do código por ter sido substituído pelo Rating 2.0:
+  - `src/app/match/[match_id]/page.js`: coluna "RP" removida (era o último lugar que a exibia).
+  - `prisma/seed.js`: função `calculateRp()` e campo `points` removidos do seed.
+  - `README.md`: bullet "Ranking por Pontos (RP)" trocado pela descrição do Rating 2.0.
+- **Mantido de propósito:** a coluna `points` no `schema.prisma` (com comentário marcando-a como legado). Removê-la exigiria `prisma db push` destrutivo que dropa a coluna no banco. A aplicação não depende mais dela. Para limpar de vez: apagar o campo do schema e rodar `npx prisma db push`.
+
+#### Tratamento de erro do banco (TiDB hibernando)
+- O erro `Can't reach database server at gateway01...tidbcloud.com:4000` é o **TiDB serverless hibernando** após inatividade (não era bug de código). A primeira conexão acorda o cluster e pode falhar.
+- Criado **`src/app/error.js`** (error boundary): mensagem amigável ("O banco pode estar acordando...") com botão "Tentar novamente" que re-renderiza.
+- **Bug corrigido no caminho:** `generateMetadata` em `/match/[id]` e `/player/[id]` consulta o banco, e erros ali **não passam pelo error boundary** (geram 500 seco sem o shell). Adicionado try/catch com título de fallback em ambos.
+
+#### Refinamento final: espaçamento das tabelas
+- Após alinhar números à direita, a última coluna ficava colada na borda do card (só 12px). Adicionado `md:pr-6` (24px) na última coluna de todas as tabelas que encostam na borda: `/match/[id]` (Rating), `/players` (Mapas), `/matches` (Data), perfil (HS%), `/map/[nome]` (+/- e Data). No mobile não muda (vira card com padding próprio).
+
+#### Arquivos novos desta sessão
+`src/app/error.js`, `src/app/loading.js`, `src/app/{matches,players,rankings}/loading.js`, `src/components/{GalleryGrid,PlayerAvatar,PlayersTable,TableSkeleton}.js`, `src/lib/{rating,steam}.js`.

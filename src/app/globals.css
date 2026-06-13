@@ -60,26 +60,39 @@
   }
 }
 
+/* Tabelas de estatísticas: separadores de linha e hover (desktop) */
+.stats-table tbody tr {
+  @apply border-b border-gray-700/50 last:border-b-0;
+}
+@media (min-width: 768px) {
+  .stats-table tbody tr:not(.responsive-table-header-group):hover {
+    @apply bg-gray-700/20;
+  }
+}
+
 /* Estilos para Tabela Responsiva */
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .responsive-table thead {
     @apply hidden;
   }
-  .responsive-table tbody, .responsive-table tr, .responsive-table td {
+  .responsive-table tbody, .responsive-table tr {
     @apply block;
   }
   .responsive-table tr {
-    @apply border-b border-gray-700 pb-4 mb-4;
+    @apply border-b border-gray-700 py-2;
   }
   .responsive-table td {
-    @apply text-right relative pl-24;
+    @apply flex items-center justify-between gap-4 text-right px-4 py-1.5;
   }
   .responsive-table td::before {
     content: attr(data-label);
-    @apply absolute left-4 top-1/2 -translate-y-1/2 font-bold text-left text-gray-400;
+    @apply font-bold text-left text-gray-400 shrink-0;
+  }
+  .responsive-table td > a {
+    @apply min-w-0 break-words py-1;
   }
   .responsive-table .responsive-table-header-group td {
-    @apply text-left p-2;
+    @apply justify-start text-left p-2;
   }
   .responsive-table .responsive-table-header-group td::before {
     @apply content-none;

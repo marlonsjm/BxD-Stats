@@ -6,7 +6,7 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 
 ## ✨ Funcionalidades Principais
 
-- **Ranking por Pontos (RP):** O site apresenta um sistema de ranking robusto inspirado em plataformas competitivas. A pontuação é baseada no **resultado da partida (vitória/derrota)** e ajustada pelo **desempenho individual** (ADR, Kills, Impacto, etc.), criando uma classificação justa que valoriza o trabalho em equipe.
+- **Rating 2.0 aproximado:** Cada jogador recebe um rating inspirado no Rating 2.0 da HLTV, calculado a partir de kills, mortes, assistências e dano por round. O rating aparece no ranking de jogadores, no perfil e no placar de cada partida (onde também define o destaque ⭐ da partida).
 - **Rankings Detalhados:** Além do ranking geral, a plataforma oferece classificações específicas para métricas como Percentual de Headshots (HS%), Clutches Vencidos e Taxa de Sucesso em Entry Frags.
 - **Histórico de Partidas:** Uma lista completa de todas as partidas jogadas, com placares detalhados, mapas e datas.
 - **Páginas de Detalhes:**
@@ -50,6 +50,11 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
       NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="SEU_CLOUD_NAME"
       CLOUDINARY_API_KEY="SUA_API_KEY"
       CLOUDINARY_API_SECRET="SEU_API_SECRET"
+
+      # Steam Web API (opcional - avatares dos jogadores)
+      # Gere a sua key gratuitamente em https://steamcommunity.com/dev/apikey
+      # Sem a key, o site exibe um avatar com a inicial do nick.
+      STEAM_API_KEY="SUA_STEAM_API_KEY"
       ```
 
 4.  **Sincronize o Schema do Banco:**

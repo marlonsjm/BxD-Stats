@@ -3,16 +3,24 @@ import { Orbitron } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer"; // Import the new Footer component
+import { Footer } from "@/components/Footer";
 
 const orbitron = Orbitron({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-orbitron",
+  display: "swap",
 });
 
 export const metadata = {
-  title: "BxD Stats",
-  description: "Estatísticas do servidor BxD",
+  title: {
+    default: "BxD Stats",
+    template: "%s | BxD Stats",
+  },
+  description: "Estatísticas de CS2 do servidor BxD: partidas, rankings e jogadores.",
+};
+
+export const viewport = {
+  themeColor: "#111827",
 };
 
 export default function RootLayout({ children }) {
@@ -26,8 +34,14 @@ export default function RootLayout({ children }) {
       >
         <ThemeProvider attribute="class" defaultTheme="dark">
           <div className="relative flex min-h-screen flex-col bg-gray-900">
+            <a
+              href="#conteudo"
+              className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-gray-800 focus:px-4 focus:py-2 focus:text-white"
+            >
+              Pular para o conteúdo
+            </a>
             <Navbar />
-            <main className="flex-grow container mx-auto px-4 py-8">{children}</main>
+            <main id="conteudo" className="flex-grow">{children}</main>
             <Footer />
           </div>
         </ThemeProvider>
