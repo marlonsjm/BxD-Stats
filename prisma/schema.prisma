@@ -90,6 +90,8 @@ model PlayerStats {
   head_shot_kills Int
   cash_earned   Int
   enemies_flashed Int
+  // Legado: coluna do antigo sistema de Ranking Points (RP), não usado mais pela aplicação.
+  // Mantida apenas para não exigir migração destrutiva; pode ser removida junto com a coluna no banco.
   points          Int      @default(0)
 
   // Relation: These stats belong to a single map

@@ -1,32 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Helper function to calculate points
-function calculateRp(playerStats, winnerTeam, totalRounds) {
-  const hasWon = playerStats.team === winnerTeam;
-  let points = hasWon ? 20 : -15;
-
-  // Modulation based on ADR (Damage Per Round)
-  const adr = playerStats.damage / totalRounds;
-  if (adr > 100) {
-    points += 3; // High impact
-  } else if (adr > 80) {
-    points += 1; // Positive impact
-  } else if (adr < 50) {
-    points -= 2; // Low impact
-  }
-
-  // Modulation based on K/D
-  const kdr = playerStats.kills / (playerStats.deaths || 1);
-  if (kdr > 1.5) {
-    points += 2;
-  } else if (kdr < 0.7) {
-    points -= 2;
-  }
-
-  return Math.round(points);
-}
-
 async function main() {
   console.log(`Start seeding ...`);
 
@@ -61,7 +35,6 @@ async function main() {
   });
 
   const map1 = match1.maps[0];
-  const totalRoundsMap1 = map1.team1_score + map1.team2_score;
 
   const playerStatsMap1 = [
     { steamid64: 76561197960265728n, name: 'f0rest', team: 'Ninjas in Pyjamas', kills: 22, deaths: 15, assists: 5, damage: 2500, head_shot_kills: 10 },
@@ -77,12 +50,10 @@ async function main() {
   ];
 
   const playerStatsDataMap1 = playerStatsMap1.map(stats => {
-    const rp = calculateRp(stats, map1.winner, totalRoundsMap1);
     return {
       ...stats,
       matchid: map1.matchid,
       mapnumber: map1.mapnumber,
-      points: rp,
       // Filling in other required fields from schema with default values
       enemy5ks: 0, enemy4ks: 0, enemy3ks: 0, enemy2ks: 0,
       utility_count: 0, utility_damage: 0, utility_successes: 0, utility_enemies: 0,

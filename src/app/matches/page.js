@@ -4,7 +4,12 @@ import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
+
+export const metadata = {
+  title: "Histórico de Partidas",
+  description: "Todas as partidas de CS2 jogadas no servidor BxD, com placares e mapas.",
+};
 
 async function getAllMatches() {
   const matches = await prisma.match.findMany({
@@ -39,38 +44,43 @@ export default async function MatchesPage() {
 
   return (
     <TooltipProvider>
-      <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+      <div className="text-white py-4 md:py-8">
         <div className="container mx-auto">
           <Breadcrumbs items={breadcrumbItems} />
           <header className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold">Histórico de Partidas</h1>
             <p className="text-gray-400 mt-2">Todas as partidas jogadas no servidor.</p>
+            <p className="text-xs text-gray-500 mt-1">Dados atualizados automaticamente a cada 5 minutos.</p>
           </header>
 
-          <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
-            <table className="min-w-full text-sm responsive-table">
+          {matches.length === 0 ? (
+            <p className="text-center text-gray-400 py-12">Nenhuma partida registrada ainda.</p>
+          ) : (
+          <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <table className="min-w-full text-sm responsive-table stats-table">
+              <caption className="sr-only">Histórico de partidas com placar, mapas, vencedor e data.</caption>
               <thead className="bg-gray-900/50">
                 <tr className="border-b border-gray-700">
                   <th scope="col" className="p-3 text-left font-semibold">Partida</th>
                   <MetricHeader label="Placar" description="Resultado da partida no formato: rounds (vitórias na série)" className="p-3 text-center font-semibold" />
                   <th scope="col" className="p-3 text-left font-semibold">Mapa</th>
                   <th scope="col" className="p-3 text-left font-semibold">Vencedor</th>
-                  <th scope="col" className="p-3 text-left font-semibold">Data</th>
+                  <th scope="col" className="p-3 md:pr-6 text-left font-semibold">Data</th>
                 </tr>
               </thead>
               <tbody className="bg-gray-800">
                 {matches.map(match => {
                   const firstMap = match.maps[0];
-                  const mapName = firstMap ? firstMap.mapname : 'N/A';
+                  const mapName = match.maps.length > 0 ? match.maps.map(m => m.mapname).join(', ') : 'N/A';
                   const team1Rounds = firstMap ? firstMap.team1_score : 0;
                   const team2Rounds = firstMap ? firstMap.team2_score : 0;
                   const team1MatchScore = match.team1_score;
                   const team2MatchScore = match.team2_score;
 
                   return (
-                    <tr key={match.matchid} className="last:border-b-0">
+                    <tr key={match.matchid}>
                       <td data-label="Partida" className="p-3 md:text-left">
-                        <Link href={`/match/${match.matchid}`} className="hover:underline">
+                        <Link href={`/match/${match.matchid}`} className="inline-flex items-center font-medium text-white hover:underline">
                           {match.team1_name} vs {match.team2_name}
                         </Link>
                       </td>
@@ -87,15 +97,16 @@ export default async function MatchesPage() {
                       <td data-label="Vencedor" className={`p-3 font-semibold md:text-left ${match.winner === match.team1_name || match.winner === match.team2_name ? 'text-green-500' : ''}`}>
                         {match.winner || 'Empate'}
                       </td>
-                      <td data-label="Data" className="p-3 text-gray-400 md:text-left">{new Date(match.start_time).toLocaleDateString('pt-BR')}</td>
+                      <td data-label="Data" className="p-3 md:pr-6 text-gray-400 md:text-left">{new Date(match.start_time).toLocaleDateString('pt-BR')}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+          )}
         </div>
-      </main>
+      </div>
     </TooltipProvider>
   );
 }

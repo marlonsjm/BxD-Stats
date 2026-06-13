@@ -1,10 +1,37 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import prisma from '@/lib/prisma';
 import Link from 'next/link';
+import { cache } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { calculateRating, RATING_DESCRIPTION } from "@/lib/rating";
+import { getPlayerAvatars } from "@/lib/steam";
 
-async function getPlayerData(steamid64) {
+export const revalidate = 300;
+
+// Habilita cache ISR por caminho: cada jogador é renderizado na primeira visita e cacheado
+export async function generateStaticParams() {
+  return [];
+}
+
+export async function generateMetadata({ params }) {
+  const { steamid64 } = await params;
+  try {
+    const playerData = await getPlayerData(steamid64);
+    if (!playerData) return { title: 'Jogador não encontrado' };
+    const name = playerData.names[0] || 'Jogador';
+    return {
+      title: `${name} - Estatísticas`,
+      description: `Estatísticas de CS2 de ${name} no servidor BxD: KDR, ADR, headshots e histórico de partidas.`,
+    };
+  } catch {
+    // Banco indisponível: usa um título genérico e deixa a página tratar o erro
+    return { title: 'Jogador' };
+  }
+}
+
+const getPlayerData = cache(async (steamid64) => {
   const steamIdBigInt = BigInt(steamid64);
 
   const [stats, nameRecords, mapsData] = await Promise.all([
@@ -60,6 +87,7 @@ async function getPlayerData(steamid64) {
   return {
     steamid64,
     names: nameRecords.map(r => r.name),
+    rating: calculateRating({ kills, deaths, assists, damage, rounds: totalRounds }),
     kills,
     deaths,
     assists,
@@ -75,7 +103,7 @@ async function getPlayerData(steamid64) {
     clutches_won,
     entry_success_rate: entry_count > 0 ? ((entry_wins / entry_count) * 100).toFixed(1) : '0.0',
   };
-}
+});
 
 async function getPlayerMatchHistory(steamid64) {
   const steamIdBigInt = BigInt(steamid64);
@@ -134,16 +162,20 @@ export default async function PlayerDetailPage({ params }) {
 
   if (!playerData) {
     return (
-      <main className="bg-gray-900 text-white min-h-screen p-8">
+      <div className="text-white py-12">
         <div className="container mx-auto text-center">
-          <h1 className="text-4xl font-bold">Jogador não encontrado</h1>
-          <Link href="/players" className="text-blue-400 hover:underline mt-4 inline-block">Voltar para o Ranking</Link>
+          <h1 className="text-3xl md:text-4xl font-bold">Jogador não encontrado</h1>
+          <Link href="/players" className="inline-flex items-center min-h-[44px] text-blue-400 hover:underline mt-4">Voltar para o Ranking</Link>
         </div>
-      </main>
+      </div>
     );
   }
 
-  const matchHistory = await getPlayerMatchHistory(steamid64);
+  const [matchHistory, avatars] = await Promise.all([
+    getPlayerMatchHistory(steamid64),
+    getPlayerAvatars([steamid64]),
+  ]);
+  const avatar = avatars.get(steamid64)?.full || null;
   const primaryName = playerData.names[0] || 'Jogador Desconhecido';
 
   const breadcrumbItems = [
@@ -154,17 +186,34 @@ export default async function PlayerDetailPage({ params }) {
 
   return (
     <TooltipProvider>
-      <main className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
+      <div className="text-white py-4 md:py-8">
         <div className="container mx-auto">
           <Breadcrumbs items={breadcrumbItems} />
           <header className="mb-8">
-            <Link href="/players" className="text-blue-400 hover:underline mb-6 inline-block">← Voltar para o Ranking</Link>
-            <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-              <h1 className="text-3xl md:text-4xl font-bold">{primaryName}</h1>
-              <p className="text-gray-400">SteamID64: {playerData.steamid64}</p>
-              {playerData.names.length > 1 && (
-                <p className="text-sm text-gray-500">Nicks Anteriores: {playerData.names.slice(1).join(', ')}</p>
-              )}
+            <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <PlayerAvatar src={avatar} name={primaryName} size={80} className="border-2 border-gray-700" />
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-3xl md:text-4xl font-bold break-words">{primaryName}</h1>
+                  <p className="text-sm text-gray-400 break-all">SteamID64: {playerData.steamid64}</p>
+                  {playerData.names.length > 1 && (
+                    <p className="text-sm text-gray-400">Nicks Anteriores: {playerData.names.slice(1).join(', ')}</p>
+                  )}
+                </div>
+                <div className="shrink-0 rounded-lg bg-gray-900/60 px-5 py-3 text-center">
+                  <div className={`text-3xl font-bold font-mono ${playerData.rating >= 1 ? 'text-green-400' : 'text-red-400'}`}>
+                    {playerData.rating.toFixed(2)}
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help underline decoration-dotted">
+                      <div className="text-xs text-gray-400">Rating 2.0*</div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>{RATING_DESCRIPTION}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </div>
           </header>
 
@@ -207,18 +256,19 @@ export default async function PlayerDetailPage({ params }) {
           </div>
 
           {/* Match History */}
-          <div className="bg-gray-800 md:rounded-lg shadow-lg overflow-hidden">
+          <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <h2 className="text-xl font-bold p-4">Histórico de Partidas</h2>
-            <table className="min-w-full text-sm responsive-table">
+            <table className="min-w-full text-sm responsive-table stats-table">
+              <caption className="sr-only">Histórico de partidas do jogador com estatísticas por mapa.</caption>
               <thead className="bg-gray-900/50">
                 <tr className="border-b border-gray-700">
                   <th scope="col" className="p-3 text-left font-semibold">Partida</th>
                   <th scope="col" className="p-3 text-left font-semibold">Mapa</th>
-                  <MetricHeader label="K-D" description="Kills - Deaths na partida" className="p-3 text-center font-semibold" />
-                  <MetricHeader label="A" description="Assistências na partida" className="p-3 text-center font-semibold" />
-                  <MetricHeader label="+/-" description="Diferença entre Kills e Deaths na partida" className="p-3 text-center font-semibold" />
-                  <MetricHeader label="ADR" description="Dano Médio por Round na partida" className="p-3 text-center font-semibold" />
-                  <MetricHeader label="HS%" description="Percentual de Headshots na partida" className="p-3 text-center font-semibold" />
+                  <MetricHeader label="K-D" description="Kills - Deaths na partida" className="p-3 text-right font-semibold" />
+                  <MetricHeader label="A" description="Assistências na partida" className="p-3 text-right font-semibold" />
+                  <MetricHeader label="+/-" description="Diferença entre Kills e Deaths na partida" className="p-3 text-right font-semibold" />
+                  <MetricHeader label="ADR" description="Dano Médio por Round na partida" className="p-3 text-right font-semibold" />
+                  <MetricHeader label="HS%" description="Percentual de Headshots na partida" className="p-3 md:pr-6 text-right font-semibold" />
                 </tr>
               </thead>
               <tbody className="bg-gray-800">
@@ -229,21 +279,21 @@ export default async function PlayerDetailPage({ params }) {
                   const diffSign = diff > 0 ? '+' : '';
                   const hs_percent = stat.kills > 0 ? ((stat.head_shot_kills / stat.kills) * 100).toFixed(1) : '0.0';
                   const mapRounds = stat.map.team1_score + stat.map.team2_score;
-                  const adr = mapRounds > 0 ? (stat.damage / mapRounds).toFixed(0) : '0';
+                  const adr = mapRounds > 0 ? (stat.damage / mapRounds).toFixed(1) : '0.0';
 
                   return (
-                    <tr key={`${stat.matchid}-${stat.mapnumber}`} className="last:border-b-0">
+                    <tr key={`${stat.matchid}-${stat.mapnumber}`}>
                       <td data-label="Partida" className="p-3 md:text-left">
-                        <Link href={`/match/${match.matchid}`} className="hover:underline">
+                        <Link href={`/match/${match.matchid}`} className="inline-flex items-center font-medium text-white hover:underline">
                           {match.team1_name} vs {match.team2_name}
                         </Link>
                       </td>
                       <td data-label="Mapa" className="p-3 text-gray-400 md:text-left">{stat.map.mapname}</td>
-                      <td data-label="K-D" className="p-3 font-mono text-center">{`${stat.kills}-${stat.deaths}`}</td>
-                      <td data-label="A" className="p-3 font-mono text-center">{stat.assists}</td>
-                      <td data-label="+/-" className={`p-3 font-mono text-center ${diffColor}`}>{`${diffSign}${diff}`}</td>
-                      <td data-label="ADR" className="p-3 font-mono text-center">{adr}</td>
-                      <td data-label="HS%" className="p-3 font-mono text-center">{hs_percent}%</td>
+                      <td data-label="K-D" className="p-3 font-mono tabular-nums md:text-right">{`${stat.kills}-${stat.deaths}`}</td>
+                      <td data-label="A" className="p-3 font-mono tabular-nums md:text-right">{stat.assists}</td>
+                      <td data-label="+/-" className={`p-3 font-mono tabular-nums md:text-right ${diffColor}`}>{`${diffSign}${diff}`}</td>
+                      <td data-label="ADR" className="p-3 font-mono tabular-nums md:text-right">{adr}</td>
+                      <td data-label="HS%" className="p-3 md:pr-6 font-mono tabular-nums md:text-right">{hs_percent}%</td>
                     </tr>
                   );
                 })}
@@ -251,7 +301,7 @@ export default async function PlayerDetailPage({ params }) {
             </table>
           </div>
         </div>
-      </main>
+      </div>
     </TooltipProvider>
   );
 }
