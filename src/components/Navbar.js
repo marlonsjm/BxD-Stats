@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sheet, SheetTrigger, SheetContent, SheetClose, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import { AuthNav } from '@/components/AuthNav';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -14,8 +15,6 @@ const navLinks = [
   { href: '/maps', label: 'Mapas' },
   { href: '/gallery', label: 'Galeria' },
 ];
-
-const skinsMixUrl = 'https://powderblue-parrot-119938.hostingersite.com/';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -45,15 +44,12 @@ export function Navbar() {
           {navLinks.map(link => (
             <NavLink key={link.href} href={link.href} label={link.label} />
           ))}
-          <Link
-            href={skinsMixUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
-          >
-            Skins MIX
-          </Link>
         </nav>
+
+        {/* Login Steam / perfil (desktop) */}
+        <div className="hidden md:flex flex-1 items-center justify-end">
+          <AuthNav />
+        </div>
 
         {/* Mobile Navigation */}
         <div className="flex flex-1 items-center justify-end md:hidden">
@@ -88,16 +84,8 @@ export function Navbar() {
                     );
                   })}
                 </nav>
-                <SheetClose asChild>
-                  <Link
-                    href={skinsMixUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center justify-center min-h-[44px] bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold px-4 rounded-full shadow-lg"
-                  >
-                    Skins MIX
-                  </Link>
-                </SheetClose>
+                {/* Login Steam / perfil (mobile) */}
+                <AuthNav mobile />
               </div>
             </SheetContent>
           </Sheet>

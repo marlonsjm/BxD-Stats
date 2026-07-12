@@ -308,3 +308,86 @@ Sessão extensa de auditoria e melhorias incrementais, **preservando a arquitetu
 
 #### Arquivos novos desta sessão
 `src/app/error.js`, `src/app/loading.js`, `src/app/{matches,players,rankings}/loading.js`, `src/components/{GalleryGrid,PlayerAvatar,PlayersTable,TableSkeleton}.js`, `src/lib/{rating,steam}.js`.
+
+---
+
+### 16. Login com Steam + página /profile (Claude — 11/07/2026)
+
+Sistema de login via Steam (OpenID 2.0) com página de perfil do jogador logado.
+Implementação própria enxuta, **sem dependências novas** (crypto nativo do Node).
+
+#### Fluxo
+
+1. `GET /api/auth/steam` → redireciona para a página de autorização da Steam.
+2. Steam devolve em `GET /api/auth/steam/return` → o servidor **revalida a
+   resposta com a própria Steam** (`check_authentication`) antes de confiar;
+   extrai o steamid64 do `claimed_id` (regex estrita `\d{17}`); busca
+   nick/avatar via `GetPlayerSummaries` (server-side); grava cookie de sessão
+   assinado e redireciona para `/profile`.
+3. `POST /api/auth/logout` → limpa o cookie (POST-only contra CSRF).
+4. `GET /api/me` → estado de login para a Navbar (só dados públicos).
+
+#### Sessão (`src/lib/session.js`)
+
+- Cookie `bxd_session` **assinado com HMAC-SHA256** (`SESSION_SECRET`);
+  payload: steamid + nick + avatar + expiração (7 dias). Assinado ≠
+  criptografado: nada sensível vai no payload.
+- `httpOnly` (JS do navegador não lê), `secure` em produção, `sameSite=lax`,
+  verificação com `crypto.timingSafeEqual` (evita timing attack).
+- Sem tabela de sessão no banco — stateless, compatível com serverless.
+
+#### Segurança — decisões importantes
+
+- **`STEAM_API_KEY` nunca sai do servidor:** usada só em route handlers e
+  `src/lib/steam.js`; nunca em componente cliente, `NEXT_PUBLIC_*`, logs ou
+  respostas. O fluxo OpenID em si nem usa a key.
+- **Nunca confiar no navegador:** o steamid vem exclusivamente do `claimed_id`
+  validado com a Steam; `return_to` precisa apontar para o próprio endpoint
+  (impede replay em outro host).
+- **ISR preservado:** a Navbar consulta `/api/me` no cliente em vez de ler
+  cookies no layout — ler `cookies()` no layout tornaria TODAS as páginas
+  dinâmicas e mataria o cache de 5 min (seção 15). `/profile` é a única página
+  dinâmica (`force-dynamic`), o que é inerente a ela.
+
+#### Página `/profile` (`src/app/profile/page.js`)
+
+- Deslogado: tela com botão oficial "Sign in through Steam" (+ mensagens de
+  erro do retorno via `?erro=`).
+- Logado: banner "Logado como X" + link público, e **reutiliza o componente
+  default de `/player/[steamid64]`** passando o steamid da sessão — mesmas
+  estatísticas completas, zero duplicação de queries.
+- Logado sem partidas: mensagem amigável (em vez de "Jogador não encontrado").
+
+#### Navbar (`src/components/AuthNav.js`)
+
+- Deslogado: botão "Entrar com Steam" em destaque — pílula com gradiente
+  **ciano→azul** (o accent do site) + logo da Steam, hover com scale/sombra;
+  no menu mobile vira botão cheio. Placeholder do tamanho do botão durante o
+  fetch de `/api/me` evita "pulo" no layout.
+- Logado: avatar + nick com dropdown (Meu Perfil / Sair) no desktop; links
+  diretos no menu mobile. Logout via `fetch POST`.
+- **Botão "Skins MIX" removido da navbar** (desktop e mobile) a pedido do
+  Marlon — a URL externa (`skinsMixUrl`) só existia no `Navbar.js`, nada mais
+  referenciava; o login Steam ficou como destaque único da barra.
+
+#### Env vars
+
+- **Nova:** `SESSION_SECRET` (≥16 chars; `openssl rand -hex 32`). Adicionada ao
+  `.env.local`; **precisa ser cadastrada também na Vercel** (valor próprio de
+  produção). Sem ela, as rotas de auth falham com erro explícito.
+- Reutilizada: `STEAM_API_KEY` (a mesma dos avatares). Sem ela o login ainda
+  funciona; a sessão só fica sem nick/avatar.
+
+#### Arquivos novos desta sessão
+`src/lib/session.js`, `src/app/api/auth/steam/route.js`,
+`src/app/api/auth/steam/return/route.js`, `src/app/api/auth/logout/route.js`,
+`src/app/api/me/route.js`, `src/app/profile/page.js`,
+`src/components/AuthNav.js`. Modificado: `src/components/Navbar.js` (AuthNav
+no desktop e no menu mobile).
+
+#### Nota de ambiente (Cowork/sandbox)
+O acesso Linux montado à pasta do projeto apresentou corrupção de leitura
+(bytes nulos/arquivos truncados) nesta sessão — os arquivos reais no Windows
+estavam íntegros. Por isso os arquivos desta feature foram escritos pelas
+ferramentas de arquivo (canal Windows) e o teste de execução ficou a cargo do
+Marlon na máquina local. Evitar rodar git/npm pelo sandbox nesta configuração.
