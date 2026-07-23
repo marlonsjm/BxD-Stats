@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# demos e dumps (grandes / dados locais — nao versionar)
+/MatchZy_demo/
+/ticloud/
+*.dem
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

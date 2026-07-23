@@ -1,5 +1,12 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// IMPORTANTE: quem cria/gerencia estas tabelas é o plugin MatchZy (no servidor CS2),
+// NAO o Prisma. Este site apenas LE os dados. Portanto:
+//   - NUNCA rode `prisma migrate dev/deploy` nem `prisma db push` contra o banco.
+//   - Para sincronizar mudancas de schema feitas pelo plugin, use `prisma db pull`
+//     (introspeccao) e depois `prisma generate`.
+//   - Este arquivo deve ESPELHAR exatamente o que o MatchZy cria (ver DatabaseStats.cs).
 
 generator client {
   provider     = "prisma-client-js"
@@ -90,9 +97,6 @@ model PlayerStats {
   head_shot_kills Int
   cash_earned   Int
   enemies_flashed Int
-  // Legado: coluna do antigo sistema de Ranking Points (RP), não usado mais pela aplicação.
-  // Mantida apenas para não exigir migração destrutiva; pode ser removida junto com a coluna no banco.
-  points          Int      @default(0)
 
   // Relation: These stats belong to a single map
   map Map @relation(fields: [matchid, mapnumber], references: [matchid, mapnumber], onDelete: Cascade)

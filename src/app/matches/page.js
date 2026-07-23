@@ -12,30 +12,42 @@ export const metadata = {
 };
 
 async function getAllMatches() {
-  const matches = await prisma.match.findMany({
-    select: {
-      matchid: true,
-      start_time: true,
-      winner: true,
-      team1_name: true,
-      team1_score: true,
-      team2_name: true,
-      team2_score: true,
-      maps: {
-        select: {
-          mapname: true,
-          team1_score: true,
-          team2_score: true,
-        },
-      },
-    },
-    orderBy: { start_time: 'desc' },
+  const [matchesRaw, mapCount] = await Promise.all([
+    // Raw query evita crash quando o banco tem matchid NULL (inconsistência de importação)
+    prisma.$queryRaw`
+      SELECT matchid, start_time, winner, team1_name, team1_score, team2_name, team2_score
+      FROM matchzy_stats_matches
+      WHERE matchid IS NOT NULL
+      ORDER BY start_time DESC
+    `,
+    prisma.map.count(),
+  ]);
+
+  const matchIds = matchesRaw.map(m => m.matchid).filter(id => id != null);
+
+  const maps = matchIds.length > 0
+    ? await prisma.map.findMany({
+        where: { matchid: { in: matchIds } },
+        select: { matchid: true, mapname: true, team1_score: true, team2_score: true },
+      })
+    : [];
+
+  const mapsByMatchId = {};
+  maps.forEach(m => {
+    if (!mapsByMatchId[m.matchid]) mapsByMatchId[m.matchid] = [];
+    mapsByMatchId[m.matchid].push(m);
   });
-  return matches;
+
+  const matches = matchesRaw.map(m => ({
+    ...m,
+    maps: mapsByMatchId[m.matchid] || [],
+  }));
+
+  return { matches, mapCount };
 }
 
 export default async function MatchesPage() {
-  const matches = await getAllMatches();
+  const { matches, mapCount } = await getAllMatches();
 
   const breadcrumbItems = [
     { href: "/", label: "Home" },
@@ -54,7 +66,15 @@ export default async function MatchesPage() {
           </header>
 
           {matches.length === 0 ? (
-            <p className="text-center text-gray-400 py-12">Nenhuma partida registrada ainda.</p>
+            <div className="text-center text-gray-400 py-12 space-y-2">
+              <p>Nenhuma partida registrada na tabela <code className="text-gray-300">matchzy_stats_matches</code>.</p>
+              {mapCount > 0 && (
+                <p className="text-sm">
+                  Porém existem <strong className="text-white">{mapCount}</strong> mapa(s) na tabela <code className="text-gray-300">matchzy_stats_maps</code>.<br />
+                  Isso indica dados importados sem a tabela de partidas, ou <code className="text-gray-300">matchid</code> divergente entre as tabelas.
+                </p>
+              )}
+            </div>
           ) : (
           <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             <table className="min-w-full text-sm responsive-table stats-table">

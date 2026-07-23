@@ -13,7 +13,14 @@ export const metadata = {
 
 async function getPlayerRankings() {
   const [allStats, allMaps] = await Promise.all([
-    prisma.playerStats.findMany(),
+    // Select explicito (mesmo estilo de rankings.js): evita depender de todas as
+    // colunas do schema e nao quebra se o schema/DB divergirem (ex.: coluna points removida)
+    prisma.playerStats.findMany({
+      select: {
+        steamid64: true, name: true, matchid: true, mapnumber: true,
+        kills: true, deaths: true, assists: true, head_shot_kills: true, damage: true,
+      },
+    }),
     prisma.map.findMany({
       select: { matchid: true, mapnumber: true, team1_score: true, team2_score: true },
     }),
