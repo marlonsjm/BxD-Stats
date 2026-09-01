@@ -57,10 +57,17 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
       STEAM_API_KEY="SUA_STEAM_API_KEY"
       ```
 
-4.  **Sincronize o Schema do Banco:**
+4.  **Gere o Prisma Client:**
     ```bash
-    npx prisma db push
+    npx prisma generate
     ```
+
+    > ⚠️ **Nunca rode `prisma migrate` ou `prisma db push` contra o banco.** Quem
+    > cria e gerencia as tabelas `matchzy_stats_*` é o plugin MatchZy, no servidor
+    > de CS2 — o Prisma aqui é **somente leitura**. Rodar `db push` reescreve o
+    > schema e destrói os dados (foi o que aconteceu em 18/07/2026). Para
+    > sincronizar mudanças feitas pelo plugin, use `npx prisma db pull` seguido de
+    > `npx prisma generate`.
 
 5.  **Inicie o servidor de desenvolvimento:**
     ```bash
@@ -68,3 +75,23 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
     ```
 
 Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o resultado.
+
+## 📚 Documentação
+
+- **[CHANGELOG.md](CHANGELOG.md)** — histórico de mudanças do site.
+- **[docs/pipeline-de-stats.md](docs/pipeline-de-stats.md)** — como os stats saem
+  do servidor de CS2 e chegam no site, o que fazer depois de uma noite de jogo,
+  como recuperar partidas perdidas e as armadilhas conhecidas.
+
+## 🔄 De onde vêm os dados
+
+O MatchZy (plugin do servidor de CS2) grava as partidas em um **SQLite local**, e
+um script replica esses dados para o TiDB, que é o banco que este site lê. O
+passo de sincronização é manual, rodado depois de cada noite de jogo:
+
+```bash
+node --env-file=.env.local prisma/sync-sqlite-to-tidb.mjs
+```
+
+O motivo de não ser gravação direta está documentado em
+[docs/pipeline-de-stats.md](docs/pipeline-de-stats.md#o-bug-do-matchzy-diagnóstico-de-310826).
