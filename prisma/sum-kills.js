@@ -1,0 +1,46 @@
+const demoTotals = {
+  '310': 85,
+  'D Z N': 25,
+  'FabulosoDG*N1*Androide-Lenda': 96,
+  'GIGANTESCO DA GAMA': 109,
+  'Geo <*)))><': 125,
+  'IVOZ1KA': 87,
+  'Ing': 124,
+  'Knife': 108,
+  'LUCAS77': 152,
+  'R4MON': 169,
+  'Viteco': 39,
+  'cobr4w -': 40,
+  'duck lee skins': 9,
+  'dzBÍCEPS': 29,
+  'eomarl1n': 45,
+  'f0rest': 25,
+  'rAzza': 120,
+  'rooNIZNoGouD': 172,
+  'É o Lusca': 54,
+};
+
+const dbTotals = {
+  'Knife': 27,
+  'FabulosoDG*N1*Androide-Lenda': 56,
+  'IVOZ1KA': 29,
+  'D Z N': 39,
+  'rAzza': 48,
+  'R4MON': 34,
+  'Ing': 41,
+  'rooNIZNoGouD': 50,
+  '310': 35,
+  'duck lee skins': 9,
+  'Geo <*)))><': 25,
+  'cobr4w -': 19,
+  'Viteco': 22,
+  'É o Lusca': 14,
+  'GIGANTESCO DA GAMA': 18,
+  'LUCAS77': 39,
+  'eomarl1n': 10,
+  'f0rest': 4,
+  'dzBÍCEPS': 14,
+};
+
+console.log('Demo total kills:', Object.values(demoTotals).reduce((a, b) => a + b, 0));
+console.log('DB total kills:', Object.values(dbTotals).reduce((a, b) => a + b, 0));
