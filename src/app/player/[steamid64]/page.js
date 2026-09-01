@@ -7,6 +7,7 @@ import { MetricHeader } from "@/components/MetricHeader";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { calculateRating, RATING_DESCRIPTION } from "@/lib/rating";
 import { getPlayerAvatars } from "@/lib/steam";
+import { formatMatchDate, toDateTimeAttribute } from "@/lib/date";
 
 export const revalidate = 300;
 
@@ -126,7 +127,7 @@ async function getPlayerMatchHistory(steamid64) {
     }),
     prisma.match.findMany({
       where: { matchid: { in: matchIds } },
-      select: { matchid: true, team1_name: true, team2_name: true, winner: true },
+      select: { matchid: true, start_time: true, team1_name: true, team2_name: true, winner: true },
     }),
   ]);
 
@@ -139,7 +140,10 @@ async function getPlayerMatchHistory(steamid64) {
       map: mapLookup.get(`${s.matchid}-${s.mapnumber}`) || null,
       match: matchLookup.get(s.matchid) || null,
     }))
-    .filter(s => s.map !== null && s.match !== null);
+    .filter(s => s.map !== null && s.match !== null)
+    // Ordena por data, nao por matchid: partidas recuperadas de demos/SQLite
+    // receberam ids fora de ordem cronologica (junho ficou com ids maiores que julho).
+    .sort((a, b) => new Date(b.match.start_time) - new Date(a.match.start_time));
 }
 
 const StatCard = ({ value, label, description }) => (
@@ -268,7 +272,8 @@ export default async function PlayerDetailPage({ params }) {
                   <MetricHeader label="A" description="Assistências na partida" className="p-3 text-right font-semibold" />
                   <MetricHeader label="+/-" description="Diferença entre Kills e Deaths na partida" className="p-3 text-right font-semibold" />
                   <MetricHeader label="ADR" description="Dano Médio por Round na partida" className="p-3 text-right font-semibold" />
-                  <MetricHeader label="HS%" description="Percentual de Headshots na partida" className="p-3 md:pr-6 text-right font-semibold" />
+                  <MetricHeader label="HS%" description="Percentual de Headshots na partida" className="p-3 text-right font-semibold" />
+                  <th scope="col" className="p-3 md:pr-6 text-left font-semibold">Data</th>
                 </tr>
               </thead>
               <tbody className="bg-gray-800">
@@ -293,7 +298,12 @@ export default async function PlayerDetailPage({ params }) {
                       <td data-label="A" className="p-3 font-mono tabular-nums md:text-right">{stat.assists}</td>
                       <td data-label="+/-" className={`p-3 font-mono tabular-nums md:text-right ${diffColor}`}>{`${diffSign}${diff}`}</td>
                       <td data-label="ADR" className="p-3 font-mono tabular-nums md:text-right">{adr}</td>
-                      <td data-label="HS%" className="p-3 md:pr-6 font-mono tabular-nums md:text-right">{hs_percent}%</td>
+                      <td data-label="HS%" className="p-3 font-mono tabular-nums md:text-right">{hs_percent}%</td>
+                      <td data-label="Data" className="p-3 md:pr-6 text-gray-400 md:text-left">
+                        <time dateTime={toDateTimeAttribute(match.start_time)}>
+                          {formatMatchDate(match.start_time)}
+                        </time>
+                      </td>
                     </tr>
                   );
                 })}

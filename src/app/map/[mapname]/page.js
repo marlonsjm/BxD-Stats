@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
+import { formatMatchDate, toDateTimeAttribute } from "@/lib/date";
 
 export const revalidate = 300;
 
@@ -173,7 +174,7 @@ export default async function MapPage({ params }) {
                 <td data-label="Vencedor" className={`p-3 font-semibold md:text-left ${match.winner === match.team1_name || match.winner === match.team2_name ? 'text-green-500' : ''}`}>
                   {match.winner || 'Empate'}
                 </td>
-                <td data-label="Data" className="p-3 md:pr-6 text-gray-400 md:text-left">{new Date(match.start_time).toLocaleDateString('pt-BR')}</td>
+                <td data-label="Data" className="p-3 md:pr-6 text-gray-400 md:text-left"><time dateTime={toDateTimeAttribute(match.start_time)}>{formatMatchDate(match.start_time)}</time></td>
               </tr>
             );
           })}

@@ -8,6 +8,7 @@ import { MetricHeader } from "@/components/MetricHeader";
 import { getKillsRanking } from '@/lib/rankings';
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { calculateRating, RATING_DESCRIPTION } from "@/lib/rating";
+import { formatMatchDateTime, toDateTimeAttribute } from "@/lib/date";
 import { getPlayerAvatars } from "@/lib/steam";
 
 export const revalidate = 300;
@@ -37,6 +38,7 @@ const getMatchAndRanking = cache(async (matchId) => {
     where: { matchid: parseInt(matchId) },
     select: {
       matchid: true,
+      start_time: true,
       winner: true,
       team1_name: true,
       team1_score: true,
@@ -184,6 +186,11 @@ export default async function MatchPage({ params }) {
             <div className="bg-gray-800 p-4 rounded-lg text-center shadow-lg">
               <p className="text-gray-400 text-sm md:text-base">
                 Partida em {match.maps.length > 0 ? match.maps.map(m => m.mapname).join(', ') : 'Mapa Desconhecido'}
+              </p>
+              <p className="text-gray-400 text-sm md:text-base">
+                <time dateTime={toDateTimeAttribute(match.start_time)}>
+                  {formatMatchDateTime(match.start_time)}
+                </time>
               </p>
               <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 text-2xl md:text-4xl font-bold my-2">
                 <span className={`min-w-0 break-words ${match.winner === match.team1_name ? 'text-green-400' : ''}`}>{match.team1_name}</span>
