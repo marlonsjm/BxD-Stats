@@ -4,6 +4,59 @@ Todas as mudanças relevantes do BxD Stats. O formato segue
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e as entradas são
 datadas (o projeto não usa versionamento semântico).
 
+## [2026-10-01]
+
+Migração do site de skins (WeaponPaints) de PHP para dentro do BxD-Stats. A
+hospedagem na Hostinger foi perdida e o plugin do CS2 ficou desativado; em vez de
+procurar outra hospedagem PHP com MySQL remoto, a área virou rotas `/skins` neste
+projeto. Runbook em [`docs/skins.md`](docs/skins.md); o histórico das decisões,
+incluindo as duas hospedagens que não deram certo, em
+[`docs/plano-skins-next.md`](docs/plano-skins-next.md).
+
+### Adicionado
+
+- **Área `/skins`**: grade por categoria e lado, escolha de skin, customização
+  (desgaste, seed, etiqueta, StatTrak), adesivos e chaveiro, preview 3D sob
+  demanda, e loadout dos dois lados com cópia TR↔CT.
+- Faixa de resumo no topo de `/skins` com faca, luvas, agente e música — os itens
+  que moram em outras categorias e saem do campo de visão ao escolher uma arma.
+- `src/app/api/skins/catalogo`: busca de adesivos e chaveiros no servidor. São
+  10.461 adesivos (2 MB); o catálogo nunca vai para o navegador.
+- `scripts/atualizar-catalogo-skins.mjs`: substitui o `config-gen.php` do site
+  antigo. Idempotente, com `DRY_RUN=1` para simular.
+- Modelos `PlayerSkin`, `PlayerKnife`, `PlayerGlove`, `PlayerAgent`,
+  `PlayerMusic` e `PlayerPin` no `schema.prisma`, via `db pull`.
+- `docs/skins.md` (runbook) e `docs/plano-skins-next.md` (histórico).
+
+### Corrigido
+
+Seis bugs herdados do site PHP, todos falhando em silêncio:
+
+- **Login falsificável.** O `authorize.php` aceitava o SteamID cru de
+  `openid_claimed_id`, sem verificar assinatura — dava para entrar como qualquer
+  jogador. A versão Next reusa o login que já existia em
+  `api/auth/steam/return`, com `check_authentication` server-to-server.
+- **Nenhum agente para escolher.** O `agents_pt-BR.json` do upstream é um stub
+  com 2 entradas contra 65 do `agents_en.json`, e o gerador usava pt-BR sempre.
+- **Adesivos invisíveis.** A colocação customizada nunca foi implementada e a
+  serialização gravava escala 0; o plugin aplica o valor literal.
+- **CT sem luva padrão.** O objeto `$ctGlove` era montado e nunca inserido no
+  array — código morto no gerador original.
+- **Faca padrão sumindo** do catálogo após atualização: a entrada é sintética,
+  fabricada pelo gerador, e precisa ser reproduzida.
+- **Zero validação na escrita.** O `update.php` mandava o POST direto ao banco.
+  Todo id agora é conferido contra o catálogo antes de virar INSERT.
+
+### Infraestrutura
+
+- Tabelas `wp_player_*` movidas para o database `test`, junto das
+  `matchzy_stats_*` — um Prisma client atende o site inteiro.
+- Plugin WeaponPaints reativado e apontado para o TiDB. **Funciona** onde o
+  MatchZy falha, porque usa pool de conexão (uma por query) em vez de segurar uma
+  conexão para sempre.
+- `three` adicionado como dependência, carregado apenas sob demanda: nenhuma rota
+  de `/skins` passa de 149 kB de First Load.
+
 ## [2026-08-31]
 
 Sessão dedicada a recuperar as partidas de 29/08, que apareciam como
