@@ -13,6 +13,7 @@ const navLinks = [
   { href: '/players', label: 'Jogadores' },
   { href: '/rankings', label: 'Rankings' },
   { href: '/maps', label: 'Mapas' },
+  { href: '/skins', label: 'Skins' },
   { href: '/gallery', label: 'Galeria' },
 ];
 

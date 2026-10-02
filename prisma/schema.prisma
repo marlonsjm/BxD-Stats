@@ -1,15 +1,25 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Schema do BxD-Stats.
 //
-// IMPORTANTE: quem cria/gerencia estas tabelas é o plugin MatchZy (no servidor CS2),
-// NAO o Prisma. Este site apenas LE os dados. Portanto:
+// IMPORTANTE: o Prisma NAO e dono destas tabelas. Quem as cria e gerencia sao os
+// plugins do servidor CS2 — o MatchZy (matchzy_stats_*) e o WeaponPaints
+// (wp_player_*). Portanto:
 //   - NUNCA rode `prisma migrate dev/deploy` nem `prisma db push` contra o banco.
-//   - Para sincronizar mudancas de schema feitas pelo plugin, use `prisma db pull`
+//   - Para sincronizar mudancas de schema feitas pelos plugins, use `prisma db pull`
 //     (introspeccao) e depois `prisma generate`.
-//   - Este arquivo deve ESPELHAR exatamente o que o MatchZy cria (ver DatabaseStats.cs).
+//   - Este arquivo deve ESPELHAR exatamente o que os plugins criam.
+//   - `prisma db pull` APAGA estes comentarios. Restaure-os depois de cada pull.
+//
+// Leitura x escrita (a regra muda por tabela):
+//   - matchzy_stats_* (Match / Map / PlayerStats): SOMENTE LEITURA. O site so exibe.
+//   - wp_player_* (skins): LEITURA E ESCRITA. Escolher skin e a funcao da pagina
+//     /skins. Gravar dados: sim. Alterar o schema: nunca.
+//
+// Nota sobre os indices unicos das wp_player_*: eles existem (vieram do plugin),
+// entao use `upsert` em vez de SELECT-depois-INSERT/UPDATE. O site PHP antigo
+// fazia o caminho em duas etapas, que abre corrida entre duas abas abertas.
 
 generator client {
-  provider     = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -18,7 +28,6 @@ datasource db {
   relationMode = "prisma"
 }
 
-// Represents a full match series (e.g., a Best of 3)
 model Match {
   matchid     Int       @id @default(autoincrement())
   start_time  DateTime  @db.DateTime(0)
@@ -30,77 +39,138 @@ model Match {
   team2_name  String    @default("") @db.VarChar(255)
   team2_score Int       @default(0)
   server_ip   String    @default("0") @db.VarChar(255)
-
-  // Relation: A match series has one or more maps
-  maps Map[]
+  maps        Map[]
 
   @@map("matchzy_stats_matches")
 }
 
-// Represents a single map within a match series
 model Map {
   matchid      Int
-  mapnumber    Int
-  start_time   DateTime  @db.DateTime(0)
-  end_time     DateTime? @db.DateTime(0)
-  winner       String    @default("")
-  mapname      String    @default("")
-  team1_score  Int       @default(0)
-  team2_score  Int       @default(0)
-
-  // Relation: A map belongs to a single match series
-  match        Match     @relation(fields: [matchid], references: [matchid], onDelete: Cascade)
-
-  // Relation: A map has stats for multiple players
+  mapnumber    Int           @db.UnsignedTinyInt
+  start_time   DateTime      @db.DateTime(0)
+  end_time     DateTime?     @db.DateTime(0)
+  winner       String        @default("") @db.VarChar(16)
+  mapname      String        @default("") @db.VarChar(64)
+  team1_score  Int           @default(0)
+  team2_score  Int           @default(0)
+  match        Match         @relation(fields: [matchid], references: [matchid], onDelete: Cascade)
   player_stats PlayerStats[]
 
   @@id([matchid, mapnumber])
-  @@index([mapnumber])
+  @@index([mapnumber], map: "mapnumber_index")
   @@map("matchzy_stats_maps")
 }
 
-// Represents a player's stats for a single map
 model PlayerStats {
-  matchid       Int
-  mapnumber     Int
-  steamid64     BigInt   @db.BigInt
-  team          String   @db.VarChar(255)
-  name          String   @db.VarChar(255)
-  kills         Int
-  deaths        Int
-  damage        Int
-  assists       Int
-  enemy5ks      Int
-  enemy4ks      Int
-  enemy3ks      Int
-  enemy2ks      Int
-  utility_count Int
-  utility_damage Int
-  utility_successes Int
-  utility_enemies Int
-  flash_count   Int
-  flash_successes Int
+  matchid                     Int
+  mapnumber                   Int    @db.UnsignedTinyInt
+  steamid64                   BigInt
+  team                        String @default("") @db.VarChar(255)
+  name                        String @db.VarChar(255)
+  kills                       Int
+  deaths                      Int
+  damage                      Int
+  assists                     Int
+  enemy5ks                    Int
+  enemy4ks                    Int
+  enemy3ks                    Int
+  enemy2ks                    Int
+  utility_count               Int
+  utility_damage              Int
+  utility_successes           Int
+  utility_enemies             Int
+  flash_count                 Int
+  flash_successes             Int
   health_points_removed_total Int
   health_points_dealt_total   Int
   shots_fired_total           Int
   shots_on_target_total       Int
-  v1_count      Int
-  v1_wins       Int
-  v2_count      Int
-  v2_wins       Int
-  entry_count   Int
-  entry_wins    Int
-  equipment_value Int
-  money_saved   Int
-  kill_reward   Int
-  live_time     Int
-  head_shot_kills Int
-  cash_earned   Int
-  enemies_flashed Int
-
-  // Relation: These stats belong to a single map
-  map Map @relation(fields: [matchid, mapnumber], references: [matchid, mapnumber], onDelete: Cascade)
+  v1_count                    Int
+  v1_wins                     Int
+  v2_count                    Int
+  v2_wins                     Int
+  entry_count                 Int
+  entry_wins                  Int
+  equipment_value             Int
+  money_saved                 Int
+  kill_reward                 Int
+  live_time                   Int
+  head_shot_kills             Int
+  cash_earned                 Int
+  enemies_flashed             Int
+  map                         Map    @relation(fields: [matchid, mapnumber], references: [matchid, mapnumber], onDelete: Cascade)
 
   @@id([matchid, mapnumber, steamid64])
   @@map("matchzy_stats_players")
+}
+
+model PlayerAgent {
+  steamid  String  @unique(map: "steamid") @db.VarChar(18)
+  agent_ct String? @db.VarChar(64)
+  agent_t  String? @db.VarChar(64)
+
+  @@map("wp_player_agents")
+}
+
+model PlayerGlove {
+  steamid         String @db.VarChar(18)
+  weapon_team     Int
+  weapon_defindex Int
+
+  @@unique([steamid, weapon_team], map: "steamid")
+
+  @@map("wp_player_gloves")
+}
+
+model PlayerKnife {
+  steamid     String @db.VarChar(18)
+  weapon_team Int
+  knife       String @db.VarChar(64)
+
+  @@unique([steamid, weapon_team], map: "steamid")
+
+  @@map("wp_player_knife")
+}
+
+model PlayerMusic {
+  steamid     String @db.VarChar(64)
+  weapon_team Int
+  music_id    Int
+
+  @@unique([steamid, weapon_team], map: "steamid")
+
+  @@map("wp_player_music")
+}
+
+model PlayerPin {
+  steamid     String @db.VarChar(64)
+  weapon_team Int
+  id          Int
+
+  @@unique([steamid, weapon_team], map: "steamid")
+
+  @@map("wp_player_pins")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model PlayerSkin {
+  steamid               String  @db.VarChar(18)
+  weapon_team           Int
+  weapon_defindex       Int
+  weapon_paint_id       Int
+  weapon_wear           Float   @default(0.000001) @db.Float
+  weapon_seed           Int     @default(0)
+  weapon_nametag        String? @db.VarChar(128)
+  weapon_stattrak       Boolean @default(false)
+  weapon_stattrak_count Int     @default(0)
+  weapon_sticker_0      String  @default("0;0;0;0;0;0;0") @db.VarChar(128)
+  weapon_sticker_1      String  @default("0;0;0;0;0;0;0") @db.VarChar(128)
+  weapon_sticker_2      String  @default("0;0;0;0;0;0;0") @db.VarChar(128)
+  weapon_sticker_3      String  @default("0;0;0;0;0;0;0") @db.VarChar(128)
+  weapon_sticker_4      String  @default("0;0;0;0;0;0;0") @db.VarChar(128)
+  weapon_keychain       String  @default("0;0;0;0;0") @db.VarChar(128)
+
+  @@unique([steamid, weapon_team, weapon_defindex], map: "steamid")
+
+  @@map("wp_player_skins")
 }
