@@ -115,36 +115,10 @@ const WEAPON_CATEGORY = {
   weapon_xm1014: 'shotguns',
 };
 
-// Armas exclusivas de um lado. Equipar skin de M4 no TR nao aparece no jogo,
-// entao a lista nem e exibida para o time errado.
-const CT_ONLY = new Set([
-  'weapon_m4a1',
-  'weapon_m4a1_silencer',
-  'weapon_usp_silencer',
-  'weapon_aug',
-  'weapon_fiveseven',
-  'weapon_famas',
-  'weapon_scar20',
-  'weapon_mp9',
-  'weapon_hkp2000',
-]);
-
-const T_ONLY = new Set([
-  'weapon_ak47',
-  'weapon_galilar',
-  'weapon_glock',
-  'weapon_sg556',
-  'weapon_elite',
-  'weapon_g3sg1',
-  'weapon_mac10',
-  'weapon_tec9',
-]);
-
-export function weaponAllowedForTeam(weaponName, team) {
-  if (CT_ONLY.has(weaponName)) return Number(team) === TEAM_CT;
-  if (T_ONLY.has(weaponName)) return Number(team) === TEAM_T;
-  return true;
-}
+// Exclusividade de time: definida em exclusivas.js (modulo sem imports, para
+// o script de manutencao conseguir usa-lo pelo node) e reexportada aqui.
+export { weaponAllowedForTeam } from '@/lib/skins/exclusivas';
+import { weaponAllowedForTeam } from '@/lib/skins/exclusivas';
 
 // ---------------------------------------------------------------------------
 // Indices derivados de skins.json (feito uma vez, no carregamento do modulo)

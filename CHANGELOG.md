@@ -4,6 +4,22 @@ Todas as mudanças relevantes do BxD Stats. O formato segue
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e as entradas são
 datadas (o projeto não usa versionamento semântico).
 
+## [2026-10-02]
+
+### Adicionado
+
+- Loadout completo no topo do `/profile`, e atalho "Minhas Skins" no menu do
+  avatar (desktop e mobile).
+- `scripts/limpar-skins-orfas.mjs`: remove skins de arma exclusiva gravadas no
+  lado errado.
+
+### Corrigido
+
+- **A cópia TR↔CT levava armas exclusivas do outro lado** — a AK ia parar no CT,
+  a M4 no TR. Essas linhas nunca são aplicadas: arma pega do chão preserva a
+  skin do dono original. Agora a cópia filtra, e as linhas antigas ficam num
+  grupo à parte no loadout, sem link e fora da contagem.
+
 ## [2026-10-01]
 
 Migração do site de skins (WeaponPaints) de PHP para dentro do BxD-Stats. A

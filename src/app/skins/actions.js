@@ -36,6 +36,7 @@ import {
   musicKits,
   skinByDefindexPaint,
   weaponAllowedForTeam,
+  weaponByDefindex,
   weaponByName,
 } from '@/lib/skins/catalog';
 
@@ -254,7 +255,17 @@ export async function copiarLoadout({ de, para }) {
       prisma.playerMusic.deleteMany({ where: { steamid, weapon_team: destino } }),
     ];
 
-    if (skins.length) operacoes.push(prisma.playerSkin.createMany({ data: paraDestino(skins) }));
+    // Arma exclusiva do outro lado não vai junto: a AK não existe no CT, e a
+    // arma pega do chão preserva a skin do dono original — a linha nunca seria
+    // aplicada. Copiá-la só criaria lixo e poluiria a visualização do loadout.
+    const skinsUteis = skins.filter((s) => {
+      const arma = weaponByDefindex(s.weapon_defindex);
+      return !arma || weaponAllowedForTeam(arma.name, destino);
+    });
+
+    if (skinsUteis.length) {
+      operacoes.push(prisma.playerSkin.createMany({ data: paraDestino(skinsUteis) }));
+    }
     if (facas.length) operacoes.push(prisma.playerKnife.createMany({ data: paraDestino(facas) }));
     if (luvas.length) operacoes.push(prisma.playerGlove.createMany({ data: paraDestino(luvas) }));
     if (musicas.length) operacoes.push(prisma.playerMusic.createMany({ data: paraDestino(musicas) }));

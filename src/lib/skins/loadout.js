@@ -13,6 +13,7 @@ import {
   glovePaints,
   musicKits,
   skinByDefindexPaint,
+  weaponAllowedForTeam,
   weaponByDefindex,
   weaponByName,
 } from '@/lib/skins/catalog';
@@ -90,11 +91,15 @@ export function resumirLoadout(loadout, team) {
     ? musicKits().find((k) => String(k.id) === String(loadout.music))
     : null;
 
-  // Armas de verdade: a tabela de skins mistura arma, faca e luva.
+  // Armas de verdade: a tabela mistura arma, faca e luva. Exclusivas do outro
+  // lado (AK no CT) não entram na conta — não fazem parte do equipamento deste
+  // lado; só valem se o jogador pegar a arma caída de um inimigo.
   let armasComSkin = 0;
   for (const [defindex] of loadout.skins) {
     const arma = weaponByDefindex(defindex);
-    if (arma && arma.category !== 'knifes') armasComSkin++;
+    if (!arma || arma.category === 'knifes') continue;
+    if (!weaponAllowedForTeam(arma.name, team)) continue;
+    armasComSkin++;
   }
 
   const soNome = (texto) => String(texto || '').split('|')[0].trim();
@@ -167,12 +172,24 @@ export function montarItensDoLoadout(loadout, team) {
     // Skin de faca so vale se aquela faca for a escolhida.
     if (ehFaca && loadout.knife !== arma.name) continue;
 
+    // Arma exclusiva do outro lado (AK no CT, M4 no TR). A linha existe porque
+    // a copia TR<->CT leva tudo, e isso NAO e lixo: no CS2 da para pegar a arma
+    // caida de um inimigo, e o plugin procura a skin por (time, defindex) — ou
+    // seja, o CT que pega uma AK do chao usa justamente esta linha.
+    // Separamos em outro grupo so para nao parecer parte do equipamento normal.
+    const doOutroLado = !ehFaca && !weaponAllowedForTeam(arma.name, team);
+
     const item = {
-      grupo: ehFaca ? 'Faca' : 'Armas',
+      grupo: ehFaca ? 'Faca' : doOutroLado ? 'Do outro lado' : 'Armas',
       titulo: arma.label,
       subtitulo: skin ? nomeDaSkin(skin.paint_name) : 'Padrão',
       imagem: skin?.image ?? arma.image,
-      href: `/skins/${arma.name}/${linha.weapon_paint_id}?team=${slugFromTeam(team)}`,
+      // Sem link quando é do outro lado: a tela de customização recusa arma do
+      // time errado (404), e não há como editar esta linha direto — ela veio da
+      // cópia. Para mudar, troque no lado de origem e copie de novo.
+      href: doOutroLado
+        ? null
+        : `/skins/${arma.name}/${linha.weapon_paint_id}?team=${slugFromTeam(team)}`,
       detalhe: linha,
     };
 

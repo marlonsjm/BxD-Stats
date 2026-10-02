@@ -4,7 +4,7 @@ Runbook da área `/skins`. **Leia isto primeiro ao voltar no assunto.**
 O histórico de *por que* cada decisão foi tomada está em
 [`plano-skins-next.md`](plano-skins-next.md).
 
-Última revisão: 01/10/2026.
+Última revisão: 02/10/2026.
 
 ---
 
@@ -81,6 +81,21 @@ O plugin **exige a contagem exata de campos** — string malformada é ignorada 
 silêncio. `id = 0` significa slot vazio. Parse e serialização em
 `src/lib/skins/adesivos.js`.
 
+### A cópia TR↔CT não leva arma exclusiva do outro lado
+
+A AK não existe no CT e a M4 não existe no TR. Copiar essas linhas criaria
+registros que o plugin nunca aplica: **arma pega do chão preserva a skin do dono
+original**, então a linha `(CT, AK)` não serve para nada.
+
+`copiarLoadout` filtra por `weaponAllowedForTeam` antes de inserir. A lista de
+exclusivas vive em `src/lib/skins/exclusivas.js` — módulo sem imports, para que
+o script de manutenção consiga usá-lo pelo node, que não entende o alias `@/`.
+
+Linhas assim ainda podem existir no banco, vindas de cópias anteriores ao
+filtro. Por isso `montarItensDoLoadout` as separa num grupo "Do outro lado",
+sem link (a tela de customização recusaria e daria 404) e fora da contagem de
+armas da faixa de `/skins`.
+
 ### Colunas que o site NÃO escreve
 
 - **`weapon_stattrak_count`** — quem conta as mortes é o plugin
@@ -119,6 +134,16 @@ Baixa de `Nereziel/cs2-WeaponPaints` para `src/data/skins/`. É idempotente.
 
 O script substitui o `config-gen.php` do site antigo e reproduz as entradas
 sintéticas que ele inventava (ver seção 6).
+
+### Limpar linhas órfãs
+
+```bash
+DRY_RUN=1 node --env-file=.env.local scripts/limpar-skins-orfas.mjs
+node --env-file=.env.local scripts/limpar-skins-orfas.mjs
+```
+
+Remove skins de arma exclusiva gravadas no lado errado. Só é necessário para
+linhas criadas antes de 02/10/2026; a cópia já filtra. Rodado em 02/10/2026.
 
 ### Sincronizar schema depois de atualizar o plugin
 
