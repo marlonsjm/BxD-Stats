@@ -93,6 +93,13 @@ export function AuthNav({ mobile = false, onNavigate }) {
           {avatar}
           <span className="truncate">{user.name || 'Meu Perfil'}</span>
         </Link>
+        <Link
+          href="/skins"
+          onClick={onNavigate}
+          className="flex items-center min-h-[44px] text-lg font-medium text-gray-400 hover:text-white border-b border-gray-800"
+        >
+          Minhas Skins
+        </Link>
         <button
           onClick={logout}
           className="flex items-center min-h-[44px] text-lg font-medium text-red-400 hover:text-red-300 text-left"
@@ -128,6 +135,14 @@ export function AuthNav({ mobile = false, onNavigate }) {
             className="block px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700"
           >
             Meu Perfil
+          </Link>
+          <Link
+            href="/skins"
+            role="menuitem"
+            onClick={() => setMenuOpen(false)}
+            className="block px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700"
+          >
+            Minhas Skins
           </Link>
           <button
             onClick={logout}

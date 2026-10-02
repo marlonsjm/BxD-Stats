@@ -6,7 +6,7 @@
 // Uso exclusivo em codigo servidor.
 
 import prisma from '@/lib/prisma';
-import { TEAM_T, TEAM_CT } from '@/lib/skins/times';
+import { TEAM_T, TEAM_CT, slugFromTeam } from '@/lib/skins/times';
 import {
   agentsForTeam,
   gloveByDefindex,
@@ -132,4 +132,95 @@ export function resumirLoadout(loadout, team) {
       },
     ],
   };
+}
+
+// Transforma o loadout cru do banco em linhas prontas para exibir.
+// Usado pela pagina /skins/loadout e pelo /profile, via LoadoutCompleto.
+export function montarItensDoLoadout(loadout, team) {
+  const linhas = [];
+  const armas = [];
+  for (const [defindexTexto, linha] of loadout.skins) {
+    const arma = weaponByDefindex(defindexTexto);
+    const skin = skinByDefindexPaint(defindexTexto, linha.weapon_paint_id);
+
+    // Luva: nao esta no catalogo de armas, e so conta se o modelo estiver
+    // realmente equipado (a linha de skin pode ter sobrado de outra escolha).
+    if (!arma) {
+      const luva = gloveByDefindex(defindexTexto);
+      if (!luva || String(loadout.glove) !== String(defindexTexto)) continue;
+
+      const cor = glovePaints(defindexTexto).find(
+        (g) => String(g.paint) === String(linha.weapon_paint_id)
+      );
+      linhas.push({
+        grupo: 'Luvas',
+        titulo: luva.label,
+        subtitulo: cor ? nomeDaSkin(cor.paint_name) : null,
+        imagem: cor?.image ?? luva.image,
+        href: `/skins/gloves_${defindexTexto}/${linha.weapon_paint_id}?team=${slugFromTeam(team)}`,
+        detalhe: linha,
+      });
+      continue;
+    }
+
+    const ehFaca = arma.category === 'knifes';
+    // Skin de faca so vale se aquela faca for a escolhida.
+    if (ehFaca && loadout.knife !== arma.name) continue;
+
+    const item = {
+      grupo: ehFaca ? 'Faca' : 'Armas',
+      titulo: arma.label,
+      subtitulo: skin ? nomeDaSkin(skin.paint_name) : 'Padrão',
+      imagem: skin?.image ?? arma.image,
+      href: `/skins/${arma.name}/${linha.weapon_paint_id}?team=${slugFromTeam(team)}`,
+      detalhe: linha,
+    };
+
+    if (ehFaca) linhas.push(item);
+    else armas.push(item);
+  }
+
+  // Faca escolhida sem skin aplicada: continua sendo uma escolha, entao aparece.
+  if (loadout.knife && !linhas.some((l) => l.grupo === 'Faca')) {
+    const faca = weaponByName(loadout.knife);
+    linhas.push({
+      grupo: 'Faca',
+      titulo: faca?.label ?? loadout.knife,
+      subtitulo: 'Sem skin',
+      imagem: faca?.image ?? null,
+      href: `/skins/${loadout.knife}?team=${slugFromTeam(team)}`,
+    });
+  }
+
+  // --- Agente ---
+  if (loadout.agent) {
+    const agente = agentsForTeam(team).find((a) => a.model === loadout.agent);
+    linhas.push({
+      grupo: 'Agente',
+      titulo: String(agente?.agent_name ?? loadout.agent).split('|')[0].trim(),
+      subtitulo: agente ? nomeDaSkin(agente.agent_name) : null,
+      imagem: agente?.image ?? null,
+      href: `/skins?team=${slugFromTeam(team)}&cat=agents`,
+    });
+  }
+
+  // --- Musica ---
+  if (loadout.music) {
+    const kit = musicKits().find((k) => String(k.id) === String(loadout.music));
+    linhas.push({
+      grupo: 'Música',
+      titulo: kit?.name ?? `Kit ${loadout.music}`,
+      subtitulo: null,
+      imagem: kit?.image ?? null,
+      href: `/skins?team=${slugFromTeam(team)}&cat=music`,
+    });
+  }
+
+  armas.sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  return [...linhas, ...armas];
+}
+
+function nomeDaSkin(paintName) {
+  const partes = String(paintName || "").split("|");
+  return partes.length > 1 ? partes.slice(1).join("|").trim() : "Padrão";
 }
