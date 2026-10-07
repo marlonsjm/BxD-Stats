@@ -1,76 +1,42 @@
-import prisma from './prisma';
+import { cache } from 'react';
+import { chaveMapa, getStats } from './stats';
 
-// Helper function to get player names
-async function getPlayerNames(steamids) {
-  const players = await prisma.playerStats.findMany({
-    where: {
-      steamid64: { in: steamids },
-    },
-    select: {
-      steamid64: true,
-      name: true,
-    },
-    distinct: ['steamid64'],
-  });
+// Nick atual de cada jogador: o da partida mais recente em que ele aparece.
+const getNomesAtuais = cache(async (servidor) => {
+  const { linhas, partidas } = await getStats(servidor);
+  const inicio = new Map(partidas.map(p => [p.matchid, new Date(p.start_time).getTime()]));
+  const nomes = new Map();
+  const quando = new Map();
+  for (const l of linhas) {
+    const t = inicio.get(l.matchid) ?? 0;
+    if (!nomes.has(l.steamid64) || t > quando.get(l.steamid64)) {
+      nomes.set(l.steamid64, l.name);
+      quando.set(l.steamid64, t);
+    }
+  }
+  return nomes;
+});
 
-  const nameMap = new Map();
-  players.forEach(p => nameMap.set(p.steamid64.toString(), p.name));
-  return nameMap;
-}
 
 /**
  * Busca todos os PlayerStats que possuem um Map correspondente válido e retorna
  * um objeto agregado por steamid64. Isso evita que registros "órfãos" (sem mapa)
  * distorçam os rankings e garante que ADR seja calculado por ROUND jogado.
+ * Só entram partidas finalizadas (ver lib/partidas.js). Cacheado por render: a
+ * página de rankings chama sete funções que partem do mesmo agregado.
  */
-async function getAggregatedPlayerStats() {
-  const maps = await prisma.map.findMany({
-    select: {
-      matchid: true,
-      mapnumber: true,
-      team1_score: true,
-      team2_score: true,
-    },
-  });
+const getAggregatedPlayerStats = cache(async (servidor) => {
+  const { mapasFinalizados: maps, linhasFinalizadas: stats } = await getStats(servidor);
 
-  const mapKeySet = new Set(maps.map(m => `${m.matchid}-${m.mapnumber}`));
-  const roundsByKey = new Map(
-    maps.map(m => [`${m.matchid}-${m.mapnumber}`, m.team1_score + m.team2_score])
-  );
+  const mapKeySet = new Set(maps.map(chaveMapa));
+  const roundsByKey = new Map(maps.map(m => [chaveMapa(m), m.team1_score + m.team2_score]));
 
-  // Se não houver mapas, não há o que agregar (evita OR vazio no Prisma)
   if (maps.length === 0) return [];
-
-  const stats = await prisma.playerStats.findMany({
-    where: {
-      OR: maps.map(m => ({ matchid: m.matchid, mapnumber: m.mapnumber })),
-    },
-    select: {
-      steamid64: true,
-      name: true,
-      matchid: true,
-      mapnumber: true,
-      kills: true,
-      deaths: true,
-      assists: true,
-      head_shot_kills: true,
-      damage: true,
-      enemy3ks: true,
-      enemy4ks: true,
-      enemy5ks: true,
-      v1_wins: true,
-      v2_wins: true,
-      entry_count: true,
-      entry_wins: true,
-      shots_fired_total: true,
-      shots_on_target_total: true,
-    },
-  });
 
   const aggregated = {};
 
   stats.forEach(s => {
-    const mapKey = `${s.matchid}-${s.mapnumber}`;
+    const mapKey = chaveMapa(s);
     if (!mapKeySet.has(mapKey)) return; // segurança extra
 
     if (!aggregated[s.steamid64]) {
@@ -116,16 +82,39 @@ async function getAggregatedPlayerStats() {
   });
 
   return Object.values(aggregated);
+});
+
+// Amostra minima de cada ranking. Num servidor com poucas partidas (o Online
+// recem-aberto) ninguem alcanca o padrao e o ranking fica vazio, entao o minimo
+// efetivo e o MENOR entre o padrao e metade do maior valor do servidor. Com
+// volume, o padrao volta a valer sozinho. As paginas mostram o minimo efetivo.
+const PADROES_MINIMOS = {
+  headshots: { campo: 'kills', padrao: 50, unidade: ['abate', 'abates'] },
+  entries: { campo: 'entry_count', padrao: 20, unidade: ['tentativa de entry', 'tentativas de entry'] },
+  adr: { campo: 'maps', padrao: 5, unidade: ['mapa', 'mapas'] },
+  precisao: { campo: 'shots_fired_total', padrao: 500, unidade: ['tiro disparado', 'tiros disparados'] },
+};
+
+function calcularMinimos(aggregates) {
+  return Object.fromEntries(Object.entries(PADROES_MINIMOS).map(([chave, { campo, padrao, unidade }]) => {
+    const maior = aggregates.reduce((max, p) => Math.max(max, p[campo]), 0);
+    const valor = Math.max(1, Math.min(padrao, Math.ceil(maior / 2)));
+    return [chave, { valor, unidade: unidade[valor === 1 ? 0 : 1], reduzido: valor < padrao }];
+  }));
 }
 
-export async function getKillsRanking(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getMinimosRanking(servidor) {
+  return calcularMinimos(await getAggregatedPlayerStats(servidor));
+}
+
+export async function getKillsRanking(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
 
   const sortedPlayers = aggregates
     .sort((a, b) => b.kills - a.kills)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(sortedPlayers.map(p => p.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return sortedPlayers.map((p, index) => {
     const kdr = p.deaths > 0 ? p.kills / p.deaths : p.kills;
@@ -143,11 +132,12 @@ export async function getKillsRanking(limit = 50) {
   });
 }
 
-export async function getHeadshotRankings(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getHeadshotRankings(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
+  const minimo = calcularMinimos(aggregates).headshots.valor;
 
   const rankings = aggregates
-    .filter(p => p.kills > 50) // mínimo de 50 abates
+    .filter(p => p.kills >= minimo)
     .map(p => ({
       steamid64: p.steamid64,
       name: p.name,
@@ -157,7 +147,7 @@ export async function getHeadshotRankings(limit = 50) {
     .sort((a, b) => b.hs_percentage - a.hs_percentage)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,
@@ -167,8 +157,8 @@ export async function getHeadshotRankings(limit = 50) {
   }));
 }
 
-export async function getClutchRankings(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getClutchRankings(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
 
   const rankings = aggregates
     .map(p => ({
@@ -176,10 +166,11 @@ export async function getClutchRankings(limit = 50) {
       name: p.name,
       clutches_won: p.v1_wins + p.v2_wins,
     }))
+    .filter(p => p.clutches_won > 0)
     .sort((a, b) => b.clutches_won - a.clutches_won)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,
@@ -189,8 +180,8 @@ export async function getClutchRankings(limit = 50) {
   }));
 }
 
-export async function getMultiKillRankings(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getMultiKillRankings(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
 
   const rankings = aggregates
     .map(p => ({
@@ -201,10 +192,11 @@ export async function getMultiKillRankings(limit = 50) {
       enemy4ks: p.enemy4ks,
       enemy5ks: p.enemy5ks,
     }))
+    .filter(p => p.total > 0)
     .sort((a, b) => b.total - a.total)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,
@@ -217,11 +209,12 @@ export async function getMultiKillRankings(limit = 50) {
   }));
 }
 
-export async function getADRRanking(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getADRRanking(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
+  const minimo = calcularMinimos(aggregates).adr.valor;
 
   const rankings = aggregates
-    .filter(p => p.maps > 5) // mínimo de 5 mapas
+    .filter(p => p.maps >= minimo)
     .map(p => ({
       steamid64: p.steamid64,
       name: p.name,
@@ -233,7 +226,7 @@ export async function getADRRanking(limit = 50) {
     .sort((a, b) => b.adr - a.adr)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,
@@ -243,11 +236,12 @@ export async function getADRRanking(limit = 50) {
   }));
 }
 
-export async function getAccuracyRanking(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getAccuracyRanking(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
+  const minimo = calcularMinimos(aggregates).precisao.valor;
 
   const rankings = aggregates
-    .filter(p => p.shots_fired_total > 500) // mínimo de 500 tiros
+    .filter(p => p.shots_fired_total >= minimo)
     .map(p => ({
       steamid64: p.steamid64,
       name: p.name,
@@ -258,7 +252,7 @@ export async function getAccuracyRanking(limit = 50) {
     .sort((a, b) => b.accuracy - a.accuracy)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,
@@ -268,11 +262,12 @@ export async function getAccuracyRanking(limit = 50) {
   }));
 }
 
-export async function getEntryFragRankings(limit = 50) {
-  const aggregates = await getAggregatedPlayerStats();
+export async function getEntryFragRankings(servidor, limit = 50) {
+  const aggregates = await getAggregatedPlayerStats(servidor);
+  const minimo = calcularMinimos(aggregates).entries.valor;
 
   const rankings = aggregates
-    .filter(p => p.entry_count > 20) // mínimo de 20 tentativas de entry
+    .filter(p => p.entry_count >= minimo)
     .map(p => ({
       steamid64: p.steamid64,
       name: p.name,
@@ -282,7 +277,7 @@ export async function getEntryFragRankings(limit = 50) {
     .sort((a, b) => b.entry_success_rate - a.entry_success_rate)
     .slice(0, limit);
 
-  const playerNames = await getPlayerNames(rankings.map(r => r.steamid64));
+  const playerNames = await getNomesAtuais(servidor);
 
   return rankings.map((r, index) => ({
     rank: index + 1,

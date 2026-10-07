@@ -2,9 +2,10 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getKillsRanking, getHeadshotRankings, getClutchRankings, getEntryFragRankings, getMultiKillRankings, getADRRanking, getAccuracyRanking } from "@/lib/rankings";
+import { getKillsRanking, getHeadshotRankings, getClutchRankings, getEntryFragRankings, getMultiKillRankings, getADRRanking, getAccuracyRanking, getMinimosRanking } from "@/lib/rankings";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
+import { rota } from "@/lib/servidores";
 
 export const revalidate = 300;
 
@@ -19,7 +20,11 @@ const RANK_COLORS = {
   3: 'text-orange-400',
 };
 
-function RankingTable({ id, title, description, data, columnHeader, columnDescription }) {
+function SemDados() {
+  return <p className="px-6 pb-6 md:p-0 text-sm text-gray-400">Ainda não há dados suficientes neste servidor.</p>;
+}
+
+function RankingTable({ servidor, id, title, description, data, columnHeader, columnDescription }) {
   return (
     <Card id={id} className="bg-gray-800 border-gray-700 text-white rounded-lg scroll-mt-20">
       <CardHeader>
@@ -27,6 +32,7 @@ function RankingTable({ id, title, description, data, columnHeader, columnDescri
         {description && <p className="text-gray-400 text-sm mt-2">{description}</p>}
       </CardHeader>
       <CardContent className="p-0 md:p-6">
+        {data.length === 0 ? <SemDados /> : (
         <table className="min-w-full text-sm responsive-table stats-table">
           <caption className="sr-only">{title}</caption>
           <thead className="bg-gray-900">
@@ -45,7 +51,7 @@ function RankingTable({ id, title, description, data, columnHeader, columnDescri
               <tr key={player.rank}>
                 <td data-label="Rank" className={`px-4 py-3 font-bold ${RANK_COLORS[player.rank] || 'text-gray-400'}`}>#{player.rank}</td>
                 <td data-label="Jogador" className="px-4 py-3 md:text-left">
-                  <Link href={`/player/${player.steamid64}`} className="inline-flex items-center font-medium text-white hover:underline">
+                  <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center font-medium text-white hover:underline">
                     {player.name}
                   </Link>
                 </td>
@@ -54,12 +60,13 @@ function RankingTable({ id, title, description, data, columnHeader, columnDescri
             ))}
           </tbody>
         </table>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function MultiKillTable({ data }) {
+function MultiKillTable({ servidor, data }) {
   return (
     <Card id="multikills" className="bg-gray-800 border-gray-700 text-white rounded-lg scroll-mt-20">
       <CardHeader>
@@ -67,6 +74,7 @@ function MultiKillTable({ data }) {
         <p className="text-gray-400 text-sm mt-2">Jogadores com mais rounds de alto impacto (3K, 4K e ACE).</p>
       </CardHeader>
       <CardContent className="p-0 md:p-6">
+        {data.length === 0 ? <SemDados /> : (
         <table className="min-w-full text-sm responsive-table stats-table">
           <caption className="sr-only">Ranking de multi-kills (3K, 4K e ACE).</caption>
           <thead className="bg-gray-900">
@@ -84,7 +92,7 @@ function MultiKillTable({ data }) {
               <tr key={player.rank}>
                 <td data-label="Rank" className={`px-4 py-3 font-bold ${RANK_COLORS[player.rank] || 'text-gray-400'}`}>#{player.rank}</td>
                 <td data-label="Jogador" className="px-4 py-3 text-left">
-                  <Link href={`/player/${player.steamid64}`} className="inline-flex items-center font-medium text-white hover:underline">
+                  <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center font-medium text-white hover:underline">
                     {player.name}
                   </Link>
                 </td>
@@ -96,12 +104,13 @@ function MultiKillTable({ data }) {
             ))}
           </tbody>
         </table>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function KillsTable({ data }) {
+function KillsTable({ servidor, data }) {
   return (
     <Card id="kills" className="bg-gray-800 border-gray-700 text-white rounded-lg scroll-mt-20">
       <CardHeader>
@@ -127,7 +136,7 @@ function KillsTable({ data }) {
               <tr key={player.rank}>
                 <td data-label="Rank" className={`px-4 py-3 font-bold ${RANK_COLORS[player.rank] || 'text-gray-400'}`}>#{player.rank}</td>
                 <td data-label="Jogador" className="px-4 py-3 text-left">
-                  <Link href={`/player/${player.steamid64}`} className="inline-flex items-center font-medium text-white hover:underline">
+                  <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center font-medium text-white hover:underline">
                     {player.name}
                   </Link>
                 </td>
@@ -147,28 +156,37 @@ function KillsTable({ data }) {
   );
 }
 
-export default async function RankingsPage() {
-  const [killsRanking, headshotRankings, clutchRankings, entryFragRankings, multiKillRankings, adrRanking, accuracyRanking] = await Promise.all([
-    getKillsRanking(),
-    getHeadshotRankings(),
-    getClutchRankings(),
-    getEntryFragRankings(),
-    getMultiKillRankings(),
-    getADRRanking(),
-    getAccuracyRanking(),
+export default async function RankingsPage({ params }) {
+  const { servidor } = await params;
+  const [killsRanking, headshotRankings, clutchRankings, entryFragRankings, multiKillRankings, adrRanking, accuracyRanking, minimos] = await Promise.all([
+    getKillsRanking(servidor),
+    getHeadshotRankings(servidor),
+    getClutchRankings(servidor),
+    getEntryFragRankings(servidor),
+    getMultiKillRankings(servidor),
+    getADRRanking(servidor),
+    getAccuracyRanking(servidor),
+    getMinimosRanking(servidor),
   ]);
 
+  // Mostra o minimo que de fato vale (ver getMinimosRanking): num servidor com
+  // poucas partidas ele fica abaixo do padrao, e a descricao avisa.
+  const minimo = (chave) => {
+    const { valor, unidade, reduzido } = minimos[chave];
+    return `(Mínimo de ${valor} ${unidade}${reduzido ? ' — reduzido enquanto o servidor tem poucas partidas' : ''}.)`;
+  };
+
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
+    { href: rota(servidor), label: "Home" },
     { label: "Rankings" },
   ];
 
   const metricDescriptions = {
-    "HS %": "Percentual de abates que foram headshots. (Mínimo de 50 abates)",
+    "HS %": `Percentual de abates que foram headshots. ${minimo('headshots')}`,
     "Clutches Won": "Total de rounds vencidos em uma situação de 1 contra X inimigos.",
-    "Entry Success Rate": "Percentual de sucesso ao conseguir o primeiro abate para o time no round. (Mínimo de 20 tentativas de entry)",
-    "Dano/Mapa": "Média de dano causado por mapa jogado. (Mínimo de 5 mapas)",
-    "Precisão": "Percentual de tiros que acertaram o alvo. (Mínimo de 500 tiros disparados)",
+    "Entry Success Rate": `Percentual de sucesso ao conseguir o primeiro abate para o time no round. ${minimo('entries')}`,
+    "ADR": `Dano médio causado por round jogado. ${minimo('adr')}`,
+    "Precisão": `Percentual de tiros que acertaram o alvo. ${minimo('precisao')}`,
   };
 
   const sections = [
@@ -184,7 +202,7 @@ export default async function RankingsPage() {
   return (
     <TooltipProvider>
       <div className="container mx-auto py-4 md:py-8 text-white">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
         <header className="mb-6 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Rankings Detalhados</h1>
           <p className="text-gray-400 mt-2">Explore as classificações de jogadores por categorias específicas.</p>
@@ -204,15 +222,15 @@ export default async function RankingsPage() {
         </nav>
 
         <div className="space-y-8">
-          <KillsTable data={killsRanking} />
-          <MultiKillTable data={multiKillRankings} />
+          <KillsTable servidor={servidor} data={killsRanking} />
+          <MultiKillTable servidor={servidor} data={multiKillRankings} />
           {/* Tabelas de 3 colunas lado a lado em telas grandes: evita colunas esticadas e reduz o scroll pela metade */}
           <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
-            <RankingTable id="headshots" title="Top Headshots" data={headshotRankings} columnHeader="HS %" columnDescription={metricDescriptions["HS %"]} />
-            <RankingTable id="clutches" title="Top Clutches (1vX)" data={clutchRankings} columnHeader="Clutches Won" columnDescription={metricDescriptions["Clutches Won"]} />
-            <RankingTable id="entries" title="Top Entry Fraggers" data={entryFragRankings} columnHeader="Entry Success Rate" columnDescription={metricDescriptions["Entry Success Rate"]} />
-            <RankingTable id="adr" title="Top Dano por Mapa" data={adrRanking} columnHeader="Dano/Mapa" columnDescription={metricDescriptions["Dano/Mapa"]} />
-            <RankingTable id="precisao" title="Top Precisão" data={accuracyRanking} columnHeader="Precisão" columnDescription={metricDescriptions["Precisão"]} />
+            <RankingTable servidor={servidor} id="headshots" title="Top Headshots" data={headshotRankings} columnHeader="HS %" columnDescription={metricDescriptions["HS %"]} />
+            <RankingTable servidor={servidor} id="clutches" title="Top Clutches (1vX)" data={clutchRankings} columnHeader="Clutches Won" columnDescription={metricDescriptions["Clutches Won"]} />
+            <RankingTable servidor={servidor} id="entries" title="Top Entry Fraggers" data={entryFragRankings} columnHeader="Entry Success Rate" columnDescription={metricDescriptions["Entry Success Rate"]} />
+            <RankingTable servidor={servidor} id="adr" title="Top ADR (Dano por Round)" data={adrRanking} columnHeader="ADR" columnDescription={metricDescriptions["ADR"]} />
+            <RankingTable servidor={servidor} id="precisao" title="Top Precisão" data={accuracyRanking} columnHeader="Precisão" columnDescription={metricDescriptions["Precisão"]} />
           </div>
         </div>
       </div>

@@ -4,6 +4,81 @@ Todas as mudanças relevantes do BxD Stats. O formato segue
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), e as entradas são
 datadas (o projeto não usa versionamento semântico).
 
+## [2026-10-07]
+
+Segundo servidor de stats. O site passa a exibir a LAN e o servidor Online, que
+grava em outro banco TiDB. Detalhes em
+[`docs/pipeline-de-stats.md`](docs/pipeline-de-stats.md#dois-servidores-dois-bancos).
+
+### Adicionado
+
+- **Chave LAN | Online** na Navbar, visível também no mobile. Ao trocar, o
+  usuário continua na página equivalente do outro servidor. Na página de uma
+  partida, vai para a lista de partidas, porque os IDs não se correspondem.
+- Páginas de stats com o servidor na URL: `/lan/rankings`, `/online/match/12`.
+  O cache ISR continua valendo, agora por servidor.
+- A preferência é lembrada no cookie `bxd_servidor`. URLs sem prefixo (links
+  antigos, `/rankings`) redirecionam para o servidor preferido, e `/match/:id`
+  antigo vai sempre para a LAN.
+- Selo do servidor na trilha de navegação e no título da aba.
+- Selo **Ao vivo** para a partida em andamento.
+- Jogador sem partidas em um servidor vê o atalho para o perfil no outro, em vez
+  de "não encontrado".
+- `/profile` segue o servidor escolhido.
+- Faixa fixa em toda a área `/skins` avisando que as skins valem só na LAN,
+  com link para o site de skins do servidor Online
+  ([inventory.cstrike.app](https://inventory.cstrike.app/)).
+
+- **Cache de stats para poupar o TiDB gratuito** ([`docs/cache.md`](docs/cache.md)).
+  O site lê um retrato de cada servidor (3 consultas) e guarda no Data Cache do
+  Next: 24 h para a LAN e 10 min para o Online. Todas as páginas de stats são
+  calculadas a partir dele. Antes, cada render fazia de 2 a 14 consultas. Agora,
+  navegar pelo site inteiro com o cache quente não faz nenhuma.
+- `POST /api/revalidar` renova o cache de um servidor na hora, protegido por
+  `REVALIDATE_SECRET`. O sync da LAN chama esse endpoint sozinho quando insere
+  partidas.
+- `LOG_QUERIES=1` imprime cada consulta ao banco, para medir o custo de uma
+  página.
+
+### Removido
+
+- O loadout de skins saiu do `/profile`, porque deixava a página longa demais.
+  As skins ficam em `/skins`, com o atalho "Minhas Skins" no menu do avatar.
+
+### Alterado
+
+- Rankings, totais, perfis e mapas contam só partidas **finalizadas**. Na LAN
+  não muda nada, porque o sync já descartava as incompletas. No Online, o MatchZy
+  grava direto no banco, então o filtro passou a ser feito pelo site.
+- **`DATABASE_URL` passa a se chamar `DATABASE_URL_LAN`**, simétrica a
+  `DATABASE_URL_ONLINE`. Renomeie no `.env.local` e na Vercel. Os scripts de
+  `prisma/` continuam usando a LAN.
+- O nick exibido nos rankings é o da partida mais recente do jogador. Antes
+  era um nick qualquer entre os que ele já usou.
+
+- **Mínimo de amostra dos rankings proporcional ao servidor.** Headshots (50
+  abates), Entry (20 tentativas), ADR (5 mapas) e Precisão (500 tiros) passam a
+  usar o menor entre o padrão e metade do maior valor do servidor. Na LAN nada
+  muda. No Online, com 2 partidas, esses rankings estavam vazios, inclusive os
+  tops de Headshots e Entry da Home. A dica de cada ranking mostra o mínimo em
+  vigor e avisa quando ele está reduzido.
+- Clutches e Multi-kills não listam mais jogadores com 0. Ranking sem dados
+  mostra um aviso em vez de um card vazio.
+
+### Corrigido
+
+- **O `Sincronizar_stats.bat` estava quebrado.** O `better-sqlite3`, instalado
+  com `--no-save`, tinha sido removido por um `npm install`, e o sync falhava
+  com `ERR_MODULE_NOT_FOUND`. O `.bat` (fora do repositório, em `D:\`) agora
+  reinstala o pacote quando ele falta.
+- O ranking "Dano por Mapa" calculava dano por **round**. Agora o título e a
+  descrição dizem ADR.
+- Os mínimos dos rankings eram exclusivos (`> 50`), mas a descrição dizia
+  "mínimo de 50". Agora são inclusivos. Na LAN, o ranking de ADR ganha 2
+  jogadores que tinham exatamente 5 mapas.
+- `/player/abc` e `/match/abc` derrubavam a página com erro 500 (`BigInt` e
+  `parseInt` inválidos). Agora mostram o estado de "não encontrado".
+
 ## [2026-10-02]
 
 ### Adicionado

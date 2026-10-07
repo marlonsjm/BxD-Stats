@@ -6,6 +6,9 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
 
 ## ✨ Funcionalidades Principais
 
+- **Dois servidores, LAN e Online:** uma chave no topo de cada página alterna entre os stats das partidas presenciais (`/lan`) e do servidor online (`/online`), cada um com seu banco. O site lembra a escolha entre visitas, e os links compartilhados sempre abrem no servidor certo.
+- **Leve para o banco:** os stats de cada servidor são lidos em um retrato único e guardado em cache, e todas as páginas são calculadas a partir dele ([docs/cache.md](docs/cache.md)). É isso que mantém o site dentro do plano gratuito do TiDB.
+- **Skins (`/skins`):** escolha de skins, faca, luvas, agente e música para o servidor LAN, aplicadas no jogo sem comando.
 - **Rating 2.0 aproximado:** Cada jogador recebe um rating inspirado no Rating 2.0 da HLTV, calculado a partir de kills, mortes, assistências e dano por round. O rating aparece no ranking de jogadores, no perfil e no placar de cada partida (onde também define o destaque ⭐ da partida).
 - **Rankings Detalhados:** Além do ranking geral, a plataforma oferece classificações específicas para métricas como Percentual de Headshots (HS%), Clutches Vencidos e Taxa de Sucesso em Entry Frags.
 - **Histórico de Partidas:** Uma lista completa de todas as partidas jogadas, com placares detalhados, mapas e datas.
@@ -44,7 +47,14 @@ O projeto foi desenvolvido com a assistência do [Gemini CLI](https://google.com
     - Adicione as seguintes variáveis:
       ```
       # URL de conexão do seu banco de dados (TiDB, MySQL, etc.)
-      DATABASE_URL="mysql://USER:PASSWORD@HOST/DATABASE?sslaccept=strict"
+      DATABASE_URL_LAN="mysql://USER:PASSWORD@HOST/DATABASE?sslaccept=strict"
+
+      # Banco do servidor Online (mesmas tabelas do MatchZy, outro cluster)
+      DATABASE_URL_ONLINE="mysql://USER:PASSWORD@HOST/DATABASE?sslaccept=strict"
+
+      # Renovação do cache de stats (docs/cache.md). REVALIDATE_SECRET também na Vercel.
+      REVALIDATE_SECRET="gere com: openssl rand -hex 32"
+      SITE_URL="https://SEU-SITE.vercel.app"  # usado só pelo sync da LAN
 
       # Credenciais do Cloudinary (para a galeria)
       NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="SEU_CLOUD_NAME"
@@ -79,13 +89,19 @@ Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o 
 ## 📚 Documentação
 
 - **[CHANGELOG.md](CHANGELOG.md)** — histórico de mudanças do site.
+- **[docs/cache.md](docs/cache.md)** — o cache que protege a cota do TiDB:
+  validade por servidor, como renovar na hora e as regras para não quebrá-lo.
 - **[docs/pipeline-de-stats.md](docs/pipeline-de-stats.md)** — como os stats saem
   do servidor de CS2 e chegam no site, o que fazer depois de uma noite de jogo,
   como recuperar partidas perdidas e as armadilhas conhecidas.
 
 ## 🔄 De onde vêm os dados
 
-O MatchZy (plugin do servidor de CS2) grava as partidas em um **SQLite local**, e
+O site exibe dois servidores, **LAN** (`/lan/...`) e **Online** (`/online/...`),
+cada um com seu banco. A chave no topo da página alterna entre eles e lembra a
+escolha. Detalhes em [docs/pipeline-de-stats.md](docs/pipeline-de-stats.md#dois-servidores-dois-bancos).
+
+Na LAN, o MatchZy (plugin do servidor de CS2) grava as partidas em um **SQLite local**, e
 um script replica esses dados para o TiDB, que é o banco que este site lê. O
 passo de sincronização é manual, rodado depois de cada noite de jogo:
 

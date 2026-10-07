@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { RATING_DESCRIPTION } from "@/lib/rating";
+import { rota } from "@/lib/servidores";
 
 const COLUMNS = [
   { key: 'rating', label: 'Rating', description: RATING_DESCRIPTION },
@@ -43,7 +44,7 @@ function formatValue(key, player) {
   }
 }
 
-export function PlayersTable({ players }) {
+export function PlayersTable({ servidor, players }) {
   const [sort, setSort] = useState({ key: 'kills', dir: 'desc' });
   const [query, setQuery] = useState('');
 
@@ -137,7 +138,7 @@ export function PlayersTable({ players }) {
                 <tr key={player.steamid64}>
                   <td data-label="Rank" className={`p-3 font-bold md:text-center ${RANK_COLORS[rank] || 'text-gray-400'}`}>#{rank}</td>
                   <td data-label="Jogador" className="p-3 text-right md:text-left">
-                    <Link href={`/player/${player.steamid64}`} className="inline-flex items-center gap-2 font-medium text-white hover:underline">
+                    <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center gap-2 font-medium text-white hover:underline">
                       <PlayerAvatar src={player.avatar} name={player.name} size={28} />
                       {player.name}
                     </Link>

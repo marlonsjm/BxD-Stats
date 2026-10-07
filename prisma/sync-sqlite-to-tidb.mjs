@@ -17,6 +17,11 @@
 // E idempotente: identifica a partida por (start_time, team1_name, team2_name),
 // entao rodar de novo nao duplica. Partidas incompletas (mapa sem end_time,
 // ex.: partida abortada) sao ignoradas — sao elas que virariam "Empate 0x0".
+//
+// Ao final, se entrou partida nova, avisa o site para renovar o cache de stats
+// da LAN (POST /api/revalidar). Precisa de SITE_URL e REVALIDATE_SECRET no
+// .env.local; sem elas, o site so ve as partidas novas quando o cache expira
+// (ate 24 h). Ver docs/cache.md.
 // ============================================================================
 
 import Database from 'better-sqlite3';
@@ -154,6 +159,26 @@ async function main() {
   );
   if (DRY) console.log('[DRY RUN] Nada foi gravado.');
   sqlite.close();
+
+  if (!DRY && inserted > 0) await avisarSite();
+}
+
+async function avisarSite() {
+  const { SITE_URL, REVALIDATE_SECRET } = process.env;
+  if (!SITE_URL || !REVALIDATE_SECRET) {
+    console.warn('\nSITE_URL/REVALIDATE_SECRET ausentes: o site mostra as partidas novas quando o cache expirar (ate 24 h).');
+    return;
+  }
+  try {
+    const res = await fetch(`${SITE_URL.replace(/\/$/, '')}/api/revalidar?servidor=lan`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${REVALIDATE_SECRET}` },
+    });
+    if (res.ok) console.log('\nCache do site renovado: as partidas novas ja aparecem.');
+    else console.warn(`\nO site recusou a renovacao do cache (HTTP ${res.status}). Elas aparecem quando o cache expirar (ate 24 h).`);
+  } catch (e) {
+    console.warn(`\nNao consegui avisar o site (${e.message}). Elas aparecem quando o cache expirar (ate 24 h).`);
+  }
 }
 
 main()

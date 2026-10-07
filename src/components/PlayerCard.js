@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { rota } from '@/lib/servidores';
 
-export function PlayerCard({ player, rank }) {
+export function PlayerCard({ servidor, player, rank }) {
   const rankColors = {
     1: 'text-yellow-400',
     2: 'text-gray-300',
@@ -11,7 +12,7 @@ export function PlayerCard({ player, rank }) {
   const rankColor = rankColors[rank] || 'text-gray-400';
 
   return (
-    <Link href={`/player/${player.steamid64}`} className="block">
+    <Link href={rota(servidor, `/player/${player.steamid64}`)} className="block">
       <div className="bg-gray-800 p-3 rounded-lg shadow-lg h-full flex items-center gap-4 transition-colors hover:bg-gray-700/50">
         {/* Rank */}
         <div className={`text-xl font-bold ${rankColor} w-8 text-center`}>

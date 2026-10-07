@@ -1,5 +1,6 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import prisma from "@/lib/prisma";
+import { chaveMapa, getStats } from "@/lib/stats";
+import { rota } from "@/lib/servidores";
 import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
@@ -22,19 +23,13 @@ export async function generateMetadata({ params }) {
   };
 }
 
-async function getMapData(mapname) {
+async function getMapData(servidor, mapname) {
   const decodedMapname = decodeURIComponent(mapname);
+  const { partidas, mapas, mapasFinalizados, linhasFinalizadas } = await getStats(servidor);
 
-  const mapInstances = await prisma.map.findMany({
-    where: { mapname: decodedMapname },
-    select: { matchid: true, mapnumber: true },
-  });
-
-  const playerStatsOnMap = mapInstances.length > 0
-    ? await prisma.playerStats.findMany({
-        where: { OR: mapInstances.map(m => ({ matchid: m.matchid, mapnumber: m.mapnumber })) },
-      })
-    : [];
+  const mapInstances = mapasFinalizados.filter(m => m.mapname === decodedMapname);
+  const chaves = new Set(mapInstances.map(chaveMapa));
+  const playerStatsOnMap = linhasFinalizadas.filter(l => chaves.has(chaveMapa(l)));
 
   const leaderboard = {};
   playerStatsOnMap.forEach(stat => {
@@ -59,37 +54,22 @@ async function getMapData(mapname) {
     .sort((a, b) => b.kills - a.kills);
 
   // Get match history for this map, including map details for round scores
-  const matchHistory = await prisma.match.findMany({
-    where: { maps: { some: { mapname: decodedMapname } } },
-    select: {
-      matchid: true,
-      start_time: true,
-      winner: true,
-      team1_name: true,
-      team1_score: true,
-      team2_name: true,
-      team2_score: true,
-      maps: {
-        select: {
-          mapname: true,
-          team1_score: true,
-          team2_score: true,
-        },
-      },
-    },
-    orderBy: { start_time: 'desc' },
-  });
+  const idsNoMapa = new Set(mapInstances.map(m => m.matchid));
+  const matchHistory = partidas
+    .filter(p => idsNoMapa.has(p.matchid))
+    .map(p => ({ ...p, maps: mapas.filter(m => m.matchid === p.matchid) }))
+    .sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
   return { leaderboard: sortedLeaderboard, matchHistory, decodedMapname };
 }
 
 export default async function MapPage({ params }) {
-  const { mapname } = await params;
-  const { leaderboard, matchHistory, decodedMapname } = await getMapData(mapname);
+  const { servidor, mapname } = await params;
+  const { leaderboard, matchHistory, decodedMapname } = await getMapData(servidor, mapname);
 
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
-    { href: "/maps", label: "Mapas" },
+    { href: rota(servidor), label: "Home" },
+    { href: rota(servidor, "/maps"), label: "Mapas" },
     { label: decodedMapname.replace(/de_|cs_/, '').charAt(0).toUpperCase() + decodedMapname.replace(/de_|cs_/, '').slice(1) },
   ];
 
@@ -116,7 +96,7 @@ export default async function MapPage({ params }) {
               <tr key={player.steamid64}>
                 <td data-label="Rank" className={`p-3 md:text-center font-bold ${index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-300' : index === 2 ? 'text-orange-400' : 'text-gray-400'}`}>#{index + 1}</td>
                 <td data-label="Jogador" className="p-3 md:text-left">
-                  <Link href={`/player/${player.steamid64}`} className="inline-flex items-center font-medium text-white hover:underline">
+                  <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center font-medium text-white hover:underline">
                     {player.name}
                   </Link>
                 </td>
@@ -156,7 +136,7 @@ export default async function MapPage({ params }) {
             return (
               <tr key={match.matchid}>
                 <td data-label="Times" className="p-3 md:text-left">
-                  <Link href={`/match/${match.matchid}`} className="inline-flex items-center font-medium text-white hover:underline">
+                  <Link href={rota(servidor, `/match/${match.matchid}`)} className="inline-flex items-center font-medium text-white hover:underline">
                     {match.team1_name} vs {match.team2_name}
                   </Link>
                 </td>
@@ -187,7 +167,7 @@ export default async function MapPage({ params }) {
     <TooltipProvider>
       <div className="text-white py-4 md:py-8">
         <div className="container mx-auto space-y-8">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
           <header className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold capitalize">
               Estatísticas de {decodedMapname.replace(/de_|cs_/, '')}

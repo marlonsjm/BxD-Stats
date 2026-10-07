@@ -1,5 +1,6 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import prisma from '@/lib/prisma';
+import { getStats } from '@/lib/stats';
+import { rota } from '@/lib/servidores';
 import { PlayersTable } from "@/components/PlayersTable";
 import { calculateRating } from "@/lib/rating";
 import { getPlayerAvatars } from "@/lib/steam";
@@ -11,20 +12,8 @@ export const metadata = {
   description: "Estatísticas agregadas de todos os jogadores do servidor BxD.",
 };
 
-async function getPlayerRankings() {
-  const [allStats, allMaps] = await Promise.all([
-    // Select explicito (mesmo estilo de rankings.js): evita depender de todas as
-    // colunas do schema e nao quebra se o schema/DB divergirem (ex.: coluna points removida)
-    prisma.playerStats.findMany({
-      select: {
-        steamid64: true, name: true, matchid: true, mapnumber: true,
-        kills: true, deaths: true, assists: true, head_shot_kills: true, damage: true,
-      },
-    }),
-    prisma.map.findMany({
-      select: { matchid: true, mapnumber: true, team1_score: true, team2_score: true },
-    }),
-  ]);
+async function getPlayerRankings(servidor) {
+  const { linhasFinalizadas: allStats, mapasFinalizados: allMaps } = await getStats(servidor);
 
   const mapLookup = {};
   allMaps.forEach(m => {
@@ -83,18 +72,19 @@ async function getPlayerRankings() {
   return players;
 }
 
-export default async function PlayersPage() {
-  const players = await getPlayerRankings();
+export default async function PlayersPage({ params }) {
+  const { servidor } = await params;
+  const players = await getPlayerRankings(servidor);
 
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
+    { href: rota(servidor), label: "Home" },
     { label: "Jogadores" },
   ];
 
   return (
     <div className="text-white py-4 md:py-8">
       <div className="container mx-auto">
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
         <header className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Ranking de Jogadores</h1>
           <p className="text-gray-400 mt-2">Estatísticas agregadas de todos os jogadores. Clique nas colunas para ordenar.</p>
@@ -104,7 +94,7 @@ export default async function PlayersPage() {
         {players.length === 0 ? (
           <p className="text-center text-gray-400 py-12">Nenhum jogador registrado ainda. As estatísticas aparecem aqui após a primeira partida.</p>
         ) : (
-          <PlayersTable players={players} />
+          <PlayersTable servidor={servidor} players={players} />
         )}
       </div>
     </div>

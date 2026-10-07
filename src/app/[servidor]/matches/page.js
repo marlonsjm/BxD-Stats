@@ -1,5 +1,8 @@
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import prisma from "@/lib/prisma";
+import { getStats } from "@/lib/stats";
+import { statusPartida } from "@/lib/partidas";
+import { rota } from "@/lib/servidores";
+import { SeloAoVivo } from "@/components/SeloAoVivo";
 import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MetricHeader } from "@/components/MetricHeader";
@@ -12,46 +15,31 @@ export const metadata = {
   description: "Todas as partidas de CS2 jogadas no servidor BxD, com placares e mapas.",
 };
 
-async function getAllMatches() {
-  const [matchesRaw, mapCount] = await Promise.all([
-    // Raw query evita crash quando o banco tem matchid NULL (inconsistência de importação)
-    prisma.$queryRaw`
-      SELECT matchid, start_time, winner, team1_name, team1_score, team2_name, team2_score
-      FROM matchzy_stats_matches
-      WHERE matchid IS NOT NULL
-      ORDER BY start_time DESC
-    `,
-    prisma.map.count(),
-  ]);
+async function getAllMatches(servidor) {
+  const { partidas, mapas, inicioMaisRecente } = await getStats(servidor);
 
-  const matchIds = matchesRaw.map(m => m.matchid).filter(id => id != null);
-
-  const maps = matchIds.length > 0
-    ? await prisma.map.findMany({
-        where: { matchid: { in: matchIds } },
-        select: { matchid: true, mapname: true, team1_score: true, team2_score: true },
-      })
-    : [];
-
+  // Partida sem fim: aparece como "ao vivo" se for a ultima e recente; senao
+  // foi abandonada e some. Ver lib/partidas.js.
   const mapsByMatchId = {};
-  maps.forEach(m => {
+  mapas.forEach(m => {
     if (!mapsByMatchId[m.matchid]) mapsByMatchId[m.matchid] = [];
     mapsByMatchId[m.matchid].push(m);
   });
 
-  const matches = matchesRaw.map(m => ({
-    ...m,
-    maps: mapsByMatchId[m.matchid] || [],
-  }));
+  const matches = partidas
+    .map(m => ({ ...m, status: statusPartida(m, inicioMaisRecente), maps: mapsByMatchId[m.matchid] || [] }))
+    .filter(m => m.status !== 'abandonada')
+    .sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
 
-  return { matches, mapCount };
+  return { matches, mapCount: mapas.length };
 }
 
-export default async function MatchesPage() {
-  const { matches, mapCount } = await getAllMatches();
+export default async function MatchesPage({ params }) {
+  const { servidor } = await params;
+  const { matches, mapCount } = await getAllMatches(servidor);
 
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
+    { href: rota(servidor), label: "Home" },
     { label: "Partidas" },
   ];
 
@@ -59,7 +47,7 @@ export default async function MatchesPage() {
     <TooltipProvider>
       <div className="text-white py-4 md:py-8">
         <div className="container mx-auto">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
           <header className="mb-8 text-center">
             <h1 className="text-3xl md:text-4xl font-bold">Histórico de Partidas</h1>
             <p className="text-gray-400 mt-2">Todas as partidas jogadas no servidor.</p>
@@ -101,7 +89,7 @@ export default async function MatchesPage() {
                   return (
                     <tr key={match.matchid}>
                       <td data-label="Partida" className="p-3 md:text-left">
-                        <Link href={`/match/${match.matchid}`} className="inline-flex items-center font-medium text-white hover:underline">
+                        <Link href={rota(servidor, `/match/${match.matchid}`)} className="inline-flex items-center font-medium text-white hover:underline">
                           {match.team1_name} vs {match.team2_name}
                         </Link>
                       </td>
@@ -116,7 +104,7 @@ export default async function MatchesPage() {
                       </td>
                       <td data-label="Mapa" className="p-3 text-gray-400 md:text-left">{mapName}</td>
                       <td data-label="Vencedor" className={`p-3 font-semibold md:text-left ${match.winner === match.team1_name || match.winner === match.team2_name ? 'text-green-500' : ''}`}>
-                        {match.winner || 'Empate'}
+                        {match.status === 'ao-vivo' ? <SeloAoVivo /> : (match.winner || 'Empate')}
                       </td>
                       <td data-label="Data" className="p-3 md:pr-6 text-gray-400 md:text-left"><time dateTime={toDateTimeAttribute(match.start_time)}>{formatMatchDate(match.start_time)}</time></td>
                     </tr>

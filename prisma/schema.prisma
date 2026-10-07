@@ -22,9 +22,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// A URL e a do banco da LAN. O site passa a URL de cada servidor no
+// construtor (getDb em src/lib/prisma.js). Os scripts de prisma/
+// (sync, rebuild, db-admin) usam este default, ou seja, sempre a LAN.
 datasource db {
   provider     = "mysql"
-  url          = env("DATABASE_URL")
+  url          = env("DATABASE_URL_LAN")
   relationMode = "prisma"
 }
 
