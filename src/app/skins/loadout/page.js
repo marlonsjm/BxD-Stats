@@ -1,6 +1,6 @@
 // Loadout completo dos dois lados, com a opcao de copiar um para o outro.
 //
-// A visualizacao em si vive em LoadoutCompleto, compartilhada com /profile.
+// A visualizacao em si vive em LoadoutCompleto.
 // Aqui fica o que e exclusivo desta pagina: os botoes de copiar.
 
 import Link from 'next/link';

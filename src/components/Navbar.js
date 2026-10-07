@@ -6,19 +6,30 @@ import { Sheet, SheetTrigger, SheetContent, SheetClose, SheetTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { AuthNav } from '@/components/AuthNav';
+import { SeletorServidor, useServidorAtual } from '@/components/SeletorServidor';
+import { rota } from '@/lib/servidores';
 
-const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/matches', label: 'Partidas' },
-  { href: '/players', label: 'Jogadores' },
-  { href: '/rankings', label: 'Rankings' },
-  { href: '/maps', label: 'Mapas' },
+// porServidor: o link ganha o prefixo do servidor da pagina (/online/matches).
+// Em pagina global (/skins, /gallery) fica sem prefixo e o middleware manda
+// para o servidor preferido.
+const LINKS = [
+  { href: '/', label: 'Home', porServidor: true },
+  { href: '/matches', label: 'Partidas', porServidor: true },
+  { href: '/players', label: 'Jogadores', porServidor: true },
+  { href: '/rankings', label: 'Rankings', porServidor: true },
+  { href: '/maps', label: 'Mapas', porServidor: true },
   { href: '/skins', label: 'Skins' },
   { href: '/gallery', label: 'Galeria' },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const { servidor, naUrl } = useServidorAtual();
+  const navLinks = LINKS.map(link => ({
+    ...link,
+    href: link.porServidor && naUrl ? rota(servidor, link.href) : link.href,
+  }));
+  const homeHref = navLinks[0].href;
 
   const NavLink = ({ href, label, className }) => {
     const isActive = pathname === href;
@@ -36,9 +47,13 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-gray-700 bg-gray-900/80 backdrop-blur">
       <div className="container flex h-16 items-center">
         {/* Logo */}
-        <Link href="/" className="mr-6 flex items-center py-2">
+        <Link href={homeHref} className="mr-3 md:mr-4 flex items-center py-2">
           <span className="font-bold text-lg text-white font-orbitron">BxD STATS</span>
         </Link>
+
+        {/* Seletor LAN | Online: visivel tambem no mobile, porque e contexto da
+            pagina e nao item de navegacao */}
+        <SeletorServidor className="md:mr-6" />
 
         {/* Desktop Navigation */}
         <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-6">
@@ -64,7 +79,7 @@ export function Navbar() {
               <div className="grid gap-4 p-6">
                 <SheetTitle className="text-left">
                   <SheetClose asChild>
-                    <Link href="/" className="inline-flex items-center py-1">
+                    <Link href={homeHref} className="inline-flex items-center py-1">
                       <span className="font-bold text-lg text-white font-orbitron">BxD STATS</span>
                     </Link>
                   </SheetClose>

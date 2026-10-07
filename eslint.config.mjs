@@ -12,6 +12,14 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals"),
   {
+    rules: {
+      // Com o segmento dinamico na raiz (src/app/[servidor]), a regra passa a
+      // tratar qualquer caminho como pagina — inclusive /api/auth/steam, que
+      // precisa de <a> (redirect completo para a Steam, nao navegacao client-side).
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".next/**",

@@ -1,22 +1,18 @@
 import TopRankings from "@/components/TopRankings";
-import prisma from "@/lib/prisma";
+import { getStats } from "@/lib/stats";
+import { SERVIDORES, rota } from "@/lib/servidores";
+import { SeloServidor } from "@/components/SeloServidor";
 import { PlayerCard } from "@/components/PlayerCard";
 import Image from "next/image";
 import Link from "next/link";
-import { getCloudinaryImages } from "./gallery/actions";
+import { getCloudinaryImages } from "../gallery/actions";
 import { getPlayerAvatars } from "@/lib/steam";
 
 // Cache com revalidação: o banco é consultado no máximo a cada 5 minutos por página
 export const revalidate = 300;
 
-async function getTopPlayers() {
-  const allStats = await prisma.playerStats.findMany({
-    select: {
-      steamid64: true,
-      name: true,
-      kills: true,
-    }
-  });
+async function getTopPlayers(servidor) {
+  const { linhasFinalizadas: allStats } = await getStats(servidor);
 
   const aggregatedPlayers = {};
   allStats.forEach(stat => {
@@ -41,21 +37,12 @@ async function getTopPlayers() {
   return topPlayers;
 }
 
-async function getOverallStats() {
-  const matchCountPromise = prisma.match.count();
-  const statsPromise = prisma.playerStats.aggregate({
-    _sum: {
-      kills: true,
-      head_shot_kills: true,
-    },
-  });
-
-  const [matchCount, totalStats] = await Promise.all([matchCountPromise, statsPromise]);
-
+async function getOverallStats(servidor) {
+  const { partidas, finalizada, linhasFinalizadas } = await getStats(servidor);
   return {
-    totalMatches: matchCount,
-    totalKills: totalStats._sum.kills || 0,
-    totalHeadshots: totalStats._sum.head_shot_kills || 0,
+    totalMatches: partidas.filter(p => finalizada(p.matchid)).length,
+    totalKills: linhasFinalizadas.reduce((s, l) => s + (l.kills || 0), 0),
+    totalHeadshots: linhasFinalizadas.reduce((s, l) => s + (l.head_shot_kills || 0), 0),
   };
 }
 
@@ -71,10 +58,11 @@ function getRandomItems(arr, num) {
   return shuffled.slice(0, num);
 }
 
-export default async function Home() {
+export default async function Home({ params }) {
+  const { servidor } = await params;
   const [topPlayers, overallStats, allImages] = await Promise.all([
-    getTopPlayers(),
-    getOverallStats(),
+    getTopPlayers(servidor),
+    getOverallStats(servidor),
     getCloudinaryImages(),
   ]);
 
@@ -94,18 +82,19 @@ export default async function Home() {
           <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-4 font-orbitron">
             BxD STATS
           </h1>
+          <SeloServidor servidor={servidor} className="mb-4" />
           <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">
-            Acompanhe as estatísticas, veja os resultados das partidas e o ranking dos jogadores do nosso servidor.
+            Acompanhe as estatísticas, veja os resultados das partidas e o ranking dos jogadores do servidor {SERVIDORES[servidor].label}.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/matches"
+              href={rota(servidor, "/matches")}
               className="inline-flex w-full sm:w-auto items-center justify-center min-h-[48px] bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-bold px-8 rounded-lg transition-colors"
             >
               Ver Partidas
             </Link>
             <Link
-              href="/rankings"
+              href={rota(servidor, "/rankings")}
               className="inline-flex w-full sm:w-auto items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold px-8 rounded-lg transition-colors"
             >
               Ver Rankings
@@ -122,19 +111,19 @@ export default async function Home() {
           </div>
         </section>
 
-        <TopRankings />
+        <TopRankings servidor={servidor} />
 
         <section>
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8">Top 5 Kills</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {topPlayers.map((player, index) => (
-              <PlayerCard key={player.steamid64} player={player} rank={index + 1} />
+              <PlayerCard key={player.steamid64} servidor={servidor} player={player} rank={index + 1} />
             ))}
           </div>
         </section>
 
         <section className="text-center">
-          <Link href="/players" className="inline-flex items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
+          <Link href={rota(servidor, "/players")} className="inline-flex items-center justify-center min-h-[48px] bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-transform duration-300 hover:scale-105">
             Ver Ranking Completo
           </Link>
         </section>

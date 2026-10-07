@@ -1,5 +1,8 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
-import prisma from '@/lib/prisma';
+import { getStats, chaveMapa } from '@/lib/stats';
+import { statusPartida } from '@/lib/partidas';
+import { rota } from '@/lib/servidores';
+import { SeloAoVivo } from '@/components/SeloAoVivo';
 import Link from 'next/link';
 import { cache } from 'react';
 import { Star, Trophy } from 'lucide-react';
@@ -19,9 +22,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { match_id } = await params;
+  const { servidor, match_id } = await params;
   try {
-    const { match } = await getMatchAndRanking(match_id);
+    const { match } = await getMatchAndRanking(servidor, match_id);
     if (!match) return { title: 'Partida não encontrada' };
     return {
       title: `${match.team1_name} vs ${match.team2_name} - Partida #${match.matchid}`,
@@ -33,60 +36,49 @@ export async function generateMetadata({ params }) {
   }
 }
 
-const getMatchAndRanking = cache(async (matchId) => {
-  const match = await prisma.match.findUnique({
-    where: { matchid: parseInt(matchId) },
-    select: {
-      matchid: true,
-      start_time: true,
-      winner: true,
-      team1_name: true,
-      team1_score: true,
-      team2_name: true,
-      team2_score: true,
-      maps: {
-        select: {
-          mapname: true,
-          team1_score: true,
-          team2_score: true,
-          player_stats: {
-            orderBy: { kills: 'desc' },
-            select: {
-              steamid64: true,
-              name: true,
-              team: true,
-              kills: true,
-              deaths: true,
-              assists: true,
-              head_shot_kills: true,
-              damage: true,
-            },
-          },
-        },
-      },
-    },
-  });
+const getMatchAndRanking = cache(async (servidor, matchId) => {
+  const id = parseInt(matchId);
+  if (Number.isNaN(id)) return { match: null, rankMap: new Map() };
 
-  const ranking = await getKillsRanking();
+  const [{ partidas, mapas, linhas, inicioMaisRecente }, ranking] = await Promise.all([
+    getStats(servidor),
+    getKillsRanking(servidor),
+  ]);
+
+  const partida = partidas.find(p => p.matchid === id);
+  const match = partida && {
+    ...partida,
+    maps: mapas
+      .filter(m => m.matchid === id)
+      .sort((a, b) => a.mapnumber - b.mapnumber)
+      .map(m => ({
+        ...m,
+        player_stats: linhas
+          .filter(l => chaveMapa(l) === chaveMapa(m))
+          .sort((a, b) => b.kills - a.kills),
+      })),
+  };
   const rankMap = new Map(ranking.map(p => [p.steamid64, p.rank]));
 
-  return { match, rankMap };
+  return { match, rankMap, inicioMaisRecente };
 });
 
 export default async function MatchPage({ params }) {
-  const { match_id } = await params;
-  const { match, rankMap } = await getMatchAndRanking(match_id);
+  const { servidor, match_id } = await params;
+  const { match, rankMap, inicioMaisRecente } = await getMatchAndRanking(servidor, match_id);
 
   if (!match) {
     return (
       <div className="text-white py-12">
         <div className="container mx-auto text-center">
           <h1 className="text-3xl md:text-4xl font-bold">Partida não encontrada</h1>
-          <Link href="/matches" className="inline-flex items-center min-h-[44px] text-blue-400 hover:underline mt-4">Voltar para a lista de partidas</Link>
+          <Link href={rota(servidor, "/matches")} className="inline-flex items-center min-h-[44px] text-blue-400 hover:underline mt-4">Voltar para a lista de partidas</Link>
         </div>
       </div>
     );
   }
+
+  const status = statusPartida(match, inicioMaisRecente);
 
   // Aggregate player stats across all maps
   const aggregatedPlayers = {};
@@ -146,7 +138,7 @@ export default async function MatchPage({ params }) {
       <tr key={player.steamid64}>
         <td data-label="Rank" className="p-3 font-mono tabular-nums md:text-center">{player.rank}</td>
         <td data-label="Jogador" className="p-3 md:text-left">
-          <Link href={`/player/${player.steamid64}`} className="inline-flex items-center gap-2 font-medium text-white hover:underline">
+          <Link href={rota(servidor, `/player/${player.steamid64}`)} className="inline-flex items-center gap-2 font-medium text-white hover:underline">
             <PlayerAvatar src={avatars.get(player.steamid64.toString())?.medium} name={player.name} size={28} />
             {player.name}
             {isMvp && (
@@ -172,8 +164,8 @@ export default async function MatchPage({ params }) {
   };
 
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
-    { href: "/matches", label: "Partidas" },
+    { href: rota(servidor), label: "Home" },
+    { href: rota(servidor, "/matches"), label: "Partidas" },
     { label: `Partida #${match.matchid}` },
   ];
 
@@ -181,7 +173,7 @@ export default async function MatchPage({ params }) {
     <TooltipProvider>
       <div className="text-white py-4 md:py-8">
         <div className="container mx-auto">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
           <header className="mb-8">
             <div className="bg-gray-800 p-4 rounded-lg text-center shadow-lg">
               <p className="text-gray-400 text-sm md:text-base">
@@ -197,7 +189,13 @@ export default async function MatchPage({ params }) {
                 <span className="font-mono whitespace-nowrap">{totalTeam1Rounds} : {totalTeam2Rounds}</span>
                 <span className={`min-w-0 break-words ${match.winner === match.team2_name ? 'text-green-400' : ''}`}>{match.team2_name}</span>
               </div>
-              <p className="text-sm text-gray-400">Vencedor: <span className="font-semibold text-green-400">{match.winner}</span></p>
+              {status === 'finalizada' ? (
+                <p className="text-sm text-gray-400">Vencedor: <span className="font-semibold text-green-400">{match.winner}</span></p>
+              ) : status === 'ao-vivo' ? (
+                <p className="text-sm text-gray-400"><SeloAoVivo /> <span className="ml-1">Placar parcial, atualizado a cada 5 minutos.</span></p>
+              ) : (
+                <p className="text-sm text-gray-400">Partida não finalizada: não entra nos rankings.</p>
+              )}
             </div>
           </header>
 

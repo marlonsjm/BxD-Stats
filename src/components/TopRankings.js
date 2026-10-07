@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getKillsRanking, getHeadshotRankings, getClutchRankings, getEntryFragRankings } from "@/lib/rankings";
+import { rota } from "@/lib/servidores";
 
-async function RankingList({ title, data, unit, href }) {
+async function RankingList({ servidor, title, data, unit, href }) {
   return (
     <Card className="bg-gray-800 border-gray-700 text-white flex flex-col">
       <CardHeader className="flex-row items-center justify-between pb-2">
@@ -12,12 +13,15 @@ async function RankingList({ title, data, unit, href }) {
         </Link>
       </CardHeader>
       <CardContent className="flex-grow">
+        {data.length === 0 ? (
+          <p className="text-sm text-gray-400">Ainda não há dados suficientes neste servidor.</p>
+        ) : (
         <ol className="divide-y divide-gray-700/50">
           {data.map((player, index) => (
             <li key={index} className="flex items-center justify-between gap-3 text-sm">
               <span className="flex min-w-0 flex-1 items-center">
                 <span className="font-bold w-6 shrink-0 text-center">{player.rank}</span>
-                <Link href={`/player/${player.steamid64}`} className="ml-2 inline-flex min-h-[40px] min-w-0 items-center hover:text-white hover:underline">
+                <Link href={rota(servidor, `/player/${player.steamid64}`)} className="ml-2 inline-flex min-h-[40px] min-w-0 items-center hover:text-white hover:underline">
                   <span className="truncate">{player.name}</span>
                 </Link>
               </span>
@@ -25,17 +29,18 @@ async function RankingList({ title, data, unit, href }) {
             </li>
           ))}
         </ol>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export default async function TopRankings() {
+export default async function TopRankings({ servidor }) {
   const [topOverall, topHeadshots, topClutches, topEntries] = await Promise.all([
-    getKillsRanking(5),
-    getHeadshotRankings(5),
-    getClutchRankings(5),
-    getEntryFragRankings(5),
+    getKillsRanking(servidor, 5),
+    getHeadshotRankings(servidor, 5),
+    getClutchRankings(servidor, 5),
+    getEntryFragRankings(servidor, 5),
   ]);
 
   return (
@@ -45,10 +50,10 @@ export default async function TopRankings() {
         Rankings acumulados de todos os jogadores do servidor com base em desempenho individual.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6">
-        <RankingList title="Top 5 Geral (Kills)" data={topOverall} href="/rankings" />
-        <RankingList title="Top 5 Headshots" data={topHeadshots} href="/rankings" />
-        <RankingList title="Top 5 Clutches" data={topClutches} href="/rankings" />
-        <RankingList title="Top 5 Entry Frags" data={topEntries} href="/rankings" />
+        <RankingList title="Top 5 Geral (Kills)" servidor={servidor} data={topOverall} href={rota(servidor, "/rankings#kills")} />
+        <RankingList title="Top 5 Headshots" servidor={servidor} data={topHeadshots} href={rota(servidor, "/rankings#headshots")} />
+        <RankingList title="Top 5 Clutches" servidor={servidor} data={topClutches} href={rota(servidor, "/rankings#clutches")} />
+        <RankingList title="Top 5 Entry Frags" servidor={servidor} data={topEntries} href={rota(servidor, "/rankings#entries")} />
       </div>
     </section>
   );

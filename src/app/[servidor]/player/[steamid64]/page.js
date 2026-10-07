@@ -1,5 +1,6 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
-import prisma from '@/lib/prisma';
+import { chaveMapa, getStats } from '@/lib/stats';
+import { IDS_SERVIDORES, SERVIDORES, rota } from '@/lib/servidores';
 import Link from 'next/link';
 import { cache } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,9 +18,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { steamid64 } = await params;
+  const { servidor, steamid64 } = await params;
   try {
-    const playerData = await getPlayerData(steamid64);
+    const playerData = await getPlayerData(servidor, steamid64);
     if (!playerData) return { title: 'Jogador não encontrado' };
     const name = playerData.names[0] || 'Jogador';
     return {
@@ -32,58 +33,41 @@ export async function generateMetadata({ params }) {
   }
 }
 
-const getPlayerData = cache(async (steamid64) => {
-  const steamIdBigInt = BigInt(steamid64);
+const getPlayerData = cache(async (servidor, steamid64) => {
+  if (!/^\d+$/.test(steamid64)) return null;
+  const { linhas, partidas, mapasFinalizados, linhasFinalizadas } = await getStats(servidor);
 
-  const [stats, nameRecords, mapsData] = await Promise.all([
-    prisma.playerStats.aggregate({
-      where: { steamid64: steamIdBigInt },
-      _sum: {
-        kills: true,
-        deaths: true,
-        assists: true,
-        head_shot_kills: true,
-        damage: true,
-        v1_wins: true,
-        v2_wins: true,
-        entry_count: true,
-        entry_wins: true,
-        shots_fired_total: true,
-        shots_on_target_total: true,
-        enemy3ks: true,
-        enemy4ks: true,
-        enemy5ks: true,
-      },
-      _count: { _all: true },
-    }),
-    prisma.playerStats.findMany({
-      where: { steamid64: steamIdBigInt },
-      select: { name: true },
-      distinct: ['name'],
-    }),
-    prisma.map.findMany({
-      where: { player_stats: { some: { steamid64: steamIdBigInt } } },
-      select: { team1_score: true, team2_score: true },
-    }),
-  ]);
+  const minhas = linhasFinalizadas.filter(l => l.steamid64 === steamid64);
+  if (minhas.length === 0) return null;
 
-  if (stats._count._all === 0) return null;
+  const soma = (campo) => minhas.reduce((s, l) => s + (l[campo] || 0), 0);
+  const kills = soma('kills');
+  const deaths = soma('deaths');
+  const assists = soma('assists');
+  const head_shot_kills = soma('head_shot_kills');
+  const damage = soma('damage');
+  const mapsPlayed = minhas.length;
+  const shots_fired = soma('shots_fired_total');
+  const shots_on_target = soma('shots_on_target_total');
+  const enemy3ks = soma('enemy3ks');
+  const enemy4ks = soma('enemy4ks');
+  const enemy5ks = soma('enemy5ks');
+  const clutches_won = soma('v1_wins') + soma('v2_wins');
+  const entry_count = soma('entry_count');
+  const entry_wins = soma('entry_wins');
+  const minhasChaves = new Set(minhas.map(chaveMapa));
+  const totalRounds = mapasFinalizados
+    .filter(m => minhasChaves.has(chaveMapa(m)))
+    .reduce((sum, m) => sum + m.team1_score + m.team2_score, 0);
 
-  const kills = stats._sum.kills || 0;
-  const deaths = stats._sum.deaths || 0;
-  const assists = stats._sum.assists || 0;
-  const head_shot_kills = stats._sum.head_shot_kills || 0;
-  const damage = stats._sum.damage || 0;
-  const mapsPlayed = stats._count._all;
-  const shots_fired = stats._sum.shots_fired_total || 0;
-  const shots_on_target = stats._sum.shots_on_target_total || 0;
-  const enemy3ks = stats._sum.enemy3ks || 0;
-  const enemy4ks = stats._sum.enemy4ks || 0;
-  const enemy5ks = stats._sum.enemy5ks || 0;
-  const clutches_won = (stats._sum.v1_wins || 0) + (stats._sum.v2_wins || 0);
-  const entry_count = stats._sum.entry_count || 0;
-  const entry_wins = stats._sum.entry_wins || 0;
-  const totalRounds = mapsData.reduce((sum, m) => sum + m.team1_score + m.team2_score, 0);
+  // Nicks do mais recente para o mais antigo (o primeiro e o atual).
+  const inicio = new Map(partidas.map(p => [p.matchid, new Date(p.start_time).getTime()]));
+  const nameRecords = [...new Set(
+    linhas
+      .filter(l => l.steamid64 === steamid64)
+      .sort((a, b) => (inicio.get(b.matchid) ?? 0) - (inicio.get(a.matchid) ?? 0))
+      .map(l => l.name),
+  )].map(name => ({ name }));
 
   return {
     steamid64,
@@ -106,38 +90,18 @@ const getPlayerData = cache(async (steamid64) => {
   };
 });
 
-async function getPlayerMatchHistory(steamid64) {
-  const steamIdBigInt = BigInt(steamid64);
-
-  // No includes — avoids crashes when PlayerStats has orphan Maps or orphan Matches
-  const stats = await prisma.playerStats.findMany({
-    where: { steamid64: steamIdBigInt },
-    orderBy: { matchid: 'desc' },
-  });
-
+async function getPlayerMatchHistory(servidor, steamid64) {
+  const { linhasFinalizadas, mapas: maps, partidas: matches } = await getStats(servidor);
+  const stats = linhasFinalizadas.filter(l => l.steamid64 === steamid64);
   if (stats.length === 0) return [];
 
-  const matchIds = [...new Set(stats.map(s => s.matchid))];
-  const mapKeys = stats.map(s => ({ matchid: s.matchid, mapnumber: s.mapnumber }));
-
-  const [maps, matches] = await Promise.all([
-    prisma.map.findMany({
-      where: { OR: mapKeys.map(k => ({ matchid: k.matchid, mapnumber: k.mapnumber })) },
-      select: { matchid: true, mapnumber: true, mapname: true, team1_score: true, team2_score: true },
-    }),
-    prisma.match.findMany({
-      where: { matchid: { in: matchIds } },
-      select: { matchid: true, start_time: true, team1_name: true, team2_name: true, winner: true },
-    }),
-  ]);
-
-  const mapLookup = new Map(maps.map(m => [`${m.matchid}-${m.mapnumber}`, m]));
+  const mapLookup = new Map(maps.map(m => [chaveMapa(m), m]));
   const matchLookup = new Map(matches.map(m => [m.matchid, m]));
 
   return stats
     .map(s => ({
       ...s,
-      map: mapLookup.get(`${s.matchid}-${s.mapnumber}`) || null,
+      map: mapLookup.get(chaveMapa(s)) || null,
       match: matchLookup.get(s.matchid) || null,
     }))
     .filter(s => s.map !== null && s.match !== null)
@@ -161,30 +125,41 @@ const StatCard = ({ value, label, description }) => (
 );
 
 export default async function PlayerDetailPage({ params }) {
-  const { steamid64 } = await params;
-  const playerData = await getPlayerData(steamid64);
+  const { servidor, steamid64 } = await params;
+  const playerData = await getPlayerData(servidor, steamid64);
 
   if (!playerData) {
+    // Comum ao trocar de servidor no seletor: o jogador existe, so nao jogou
+    // neste. Oferece o perfil no outro servidor em vez de um 404 seco.
+    const outro = IDS_SERVIDORES.find(id => id !== servidor);
     return (
       <div className="text-white py-12">
         <div className="container mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold">Jogador não encontrado</h1>
-          <Link href="/players" className="inline-flex items-center min-h-[44px] text-blue-400 hover:underline mt-4">Voltar para o Ranking</Link>
+          <h1 className="text-3xl md:text-4xl font-bold">Sem partidas no servidor {SERVIDORES[servidor].label}</h1>
+          <p className="text-gray-400 mt-3">Este jogador ainda não tem partidas finalizadas registradas aqui.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-x-6">
+            {/^\d+$/.test(steamid64) && (
+              <Link href={rota(outro, `/player/${steamid64}`)} className="inline-flex items-center min-h-[44px] text-cyan-400 hover:underline">
+                Ver no servidor {SERVIDORES[outro].label}
+              </Link>
+            )}
+            <Link href={rota(servidor, "/players")} className="inline-flex items-center min-h-[44px] text-blue-400 hover:underline">Voltar para o Ranking</Link>
+          </div>
         </div>
       </div>
     );
   }
 
   const [matchHistory, avatars] = await Promise.all([
-    getPlayerMatchHistory(steamid64),
+    getPlayerMatchHistory(servidor, steamid64),
     getPlayerAvatars([steamid64]),
   ]);
   const avatar = avatars.get(steamid64)?.full || null;
   const primaryName = playerData.names[0] || 'Jogador Desconhecido';
 
   const breadcrumbItems = [
-    { href: "/", label: "Home" },
-    { href: "/players", label: "Jogadores" },
+    { href: rota(servidor), label: "Home" },
+    { href: rota(servidor, "/players"), label: "Jogadores" },
     { label: primaryName },
   ];
 
@@ -192,7 +167,7 @@ export default async function PlayerDetailPage({ params }) {
     <TooltipProvider>
       <div className="text-white py-4 md:py-8">
         <div className="container mx-auto">
-          <Breadcrumbs items={breadcrumbItems} />
+          <Breadcrumbs items={breadcrumbItems} servidor={servidor} />
           <header className="mb-8">
             <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -289,7 +264,7 @@ export default async function PlayerDetailPage({ params }) {
                   return (
                     <tr key={`${stat.matchid}-${stat.mapnumber}`}>
                       <td data-label="Partida" className="p-3 md:text-left">
-                        <Link href={`/match/${match.matchid}`} className="inline-flex items-center font-medium text-white hover:underline">
+                        <Link href={rota(servidor, `/match/${match.matchid}`)} className="inline-flex items-center font-medium text-white hover:underline">
                           {match.team1_name} vs {match.team2_name}
                         </Link>
                       </td>
