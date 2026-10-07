@@ -1,9 +1,44 @@
 # Pipeline de stats — como os dados chegam no site
 
 > Documento operacional. Jogamos ~1x por mês, então este arquivo existe para
-> reconstruir o contexto rápido. Última revisão: **31/08/2026**.
+> reconstruir o contexto rápido. Última revisão: **06/10/2026**.
 
-## Fluxo atual
+## Dois servidores, dois bancos
+
+Desde 06/10/2026 o site exibe dois servidores, escolhidos pela chave **LAN | Online**
+no topo de cada página:
+
+| | LAN | Online |
+|---|---|---|
+| URL no site | `/lan/...` | `/online/...` |
+| Variável | `DATABASE_URL_LAN` | `DATABASE_URL_ONLINE` |
+| Banco | cluster `us-east-1`, database `test` | cluster `sa-east-1`, database `matchzy` |
+| Como o MatchZy grava | SQLite local + sync (abaixo) | **direto no TiDB** |
+| Partidas incompletas | descartadas pelo sync | filtradas pelo site (`src/lib/partidas.js`) |
+| Skins (WeaponPaints) | sim | não tem o plugin |
+
+O resto deste documento descreve a **LAN**. O servidor Online não é nosso: só
+temos a config do plugin, e não dá para rodar o sync lá. Ele grava direto no
+TiDB, e confiamos que a versão do MatchZy de lá não tem o bug descrito abaixo.
+**Sinal de que o bug voltou:** partidas sem stats, `matchid` 0 ou -1, ou demos
+com `_-1_` no nome. Se aparecer, a seção [O bug do MatchZy](#o-bug-do-matchzy-diagnóstico-de-310826)
+explica a causa.
+
+**Partidas incompletas no Online.** Sem o sync, as partidas sem `end_time` chegam
+ao banco. O site só conta partidas **finalizadas** em rankings, totais e perfis.
+Na lista, a incompleta aparece como **Ao vivo** se for a última partida do
+servidor e tiver começado há menos de 3 h. Qualquer outra é tratada como
+abandonada e some da lista. Os `matchid` do Online pulam (2 → 30001): é o TiDB
+reservando blocos de IDs, e não indica erro.
+
+**Como o site guarda a escolha.** O servidor faz parte da URL, porque os IDs de
+partida colidem entre os bancos e o prefixo mantém o cache ISR separado. A
+preferência fica no cookie `bxd_servidor`, gravado pelo navegador a cada página
+`/lan` ou `/online` visitada. URLs sem prefixo (`/rankings`, links antigos)
+passam pelo `src/middleware.js`, que redireciona para o servidor preferido.
+A exceção é `/match/:id` antigo, que vai sempre para a LAN.
+
+## Fluxo atual (LAN)
 
 ```
 CS2 + MatchZy  --grava-->  matchzy.db  (SQLite, local no servidor)
@@ -38,7 +73,9 @@ script replica para o TiDB. Ver [O bug do MatchZy](#o-bug-do-matchzy-diagnóstic
 
 1. Rode **`D:\Sincronizar_stats.bat`** (ou, dentro de `BxD-Stats`,
    `node --env-file=.env.local prisma/sync-sqlite-to-tidb.mjs`).
-2. Confira o `/matches` — o site revalida sozinho a cada 5 minutos (ISR).
+2. Confira o `/lan/matches`. Se o `.env.local` tiver `SITE_URL` e
+   `REVALIDATE_SECRET`, o sync renova o cache do site e as partidas aparecem na
+   hora. Sem elas, aparecem em até 24 h. Ver [cache.md](cache.md).
 
 O sync é **idempotente**: identifica a partida por
 `start_time + team1_name + team2_name`, então rodar de novo não duplica nada.
